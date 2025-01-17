@@ -19,25 +19,26 @@ from src.graphs.graph_build import create_graph
 
 def return_graph_data(adata):
     # do log normalization
-    sc.pp.normalize_total(adata, target_sum=1e4)
+    # sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
 
     #create the graph. modes are voronoi or knn
     G = create_graph(adata, mode='voronoi')
 
     data = from_networkx(G)
-    data.x = torch.tensor(adata.X, dtype=torch.float)
+    data.x = torch.tensor(adata.X.todense(), dtype=torch.float)
+
     return data
 
 # my defaults are python main.py --data_dir data/ --output_dir wavelet_features/ --k_hop 1  --vendi_score_subset 3000 --lin_prob_target braak
 # for hyperedge averaging: main.py --data_dir data/ --output_dir hyperedge_avg/ --k_hop 3 --hyperedge_features gene_expression --vendi_score_subset 3000 --lin_prob_target braak --wavelets 0
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
-    # argparser.add_argument('--data_dir', type=str, default='./data/interim/section_data/')
-    argparser.add_argument('--data_dir', type=str, default='../data/spatial_placenta_accreta/resolution_57um_h5ad/')
+    argparser.add_argument('--data_dir', type=str, default='../data/spatial_placenta_accreta/patchified_data/')
     argparser.add_argument('--output_dir', type=str, default='../data/spatial_placenta_accreta/wavelet_features/')
     argparser.add_argument('--k_hop', type=int, default=1)
-    argparser.add_argument('--hyperedge_features', nargs='+', default = ['cell_type_hist', 'gene_expression', 'gene_correlation', 'diffused_gene_correlation'], type=str)
+    argparser.add_argument('--hyperedge_features', nargs='+', default = ['gene_expression', 'gene_correlation'], type=str)
+    # argparser.add_argument('--hyperedge_features', nargs='+', default = ['cell_type_hist', 'gene_expression', 'gene_correlation', 'diffused_gene_correlation'], type=str)
     argparser.add_argument('--vendi_score_subset', type=int, default=-1)
     argparser.add_argument('--lin_prob_target', type = str, default = 'braak')
     argparser.add_argument('--seed', type=int, default=0)

@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 def cell_type_feat(adata, dataset):
     #Retrieve all possible cell_types
-    
+
     # we want to do aggregation based on the different granularities of cell types
     complete_cell_types_df = retrieve_all_cell_types_categories(adata)
     enc_df = pd.get_dummies(complete_cell_types_df)
@@ -20,7 +20,7 @@ def cell_type_feat(adata, dataset):
     data = HyperGraphData(edge_index = dataset[0].edge_index, x = encoded_data)
     node_feature_counts = types_conv(data.x, data.edge_index)
     count_df = pd.DataFrame(node_feature_counts.detach().numpy(), columns=enc_df.columns).astype(int)
-    
+
     # intersect the columns that start with Class_
     class_cols = [col for col in count_df.columns if col.startswith('Class_')]
     class_col_df = count_df[class_cols]
@@ -59,7 +59,7 @@ def diffused_gene_correlation(adata, dataset, num_diffusions = 1):
         diffused_data_hyperedge = diffused_data[nodes].T
         for ind, (x,y) in enumerate(zip(original_data_hyperedge, diffused_data_hyperedge)):
             hyperedge_correlations[hyperedge, ind] = torch.corrcoef(torch.stack((x, y)))[0,1]
-        
+
         #correlation = np.corrcoef(stacked, rowvar=False)[0,1,:]
 
     return hyperedge_correlations
@@ -83,7 +83,7 @@ def gene_correlation(adata, dataset, correlation_pairs = [(0,1), (0,2), (1,2)]):
 
     return hyperedge_correlations
 
-def get_hyperedge_features(adata, 
+def get_hyperedge_features(adata,
                            dataset,
                            features = ['cell_type_hist', 'gene_expression'],
                            **kwargs):
@@ -104,7 +104,7 @@ def get_hyperedge_features(adata,
         else:
             raise ValueError('Feature not supported')
         # concatenate the features
-        
+
         if feat is None:
             feat = feat_new
         else:
