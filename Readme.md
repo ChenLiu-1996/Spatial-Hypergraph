@@ -28,3 +28,9 @@ python -m pip install opencv-python
 
 ```
 
+## Debug
+If you encounter `undefined symbol: cublasLtHSHMatmulAlgoInit, version libcublasLt.so.11`, can try the following.
+```
+export LD_LIBRARY_PATH=/home/cl2482/.conda/envs/scdata/lib/python3.10/site-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH
+```
+NOTE: replace `/home/cl2482/.conda/envs/scdata/lib/python3.10/` with your environment parent directory.
