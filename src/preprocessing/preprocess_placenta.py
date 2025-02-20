@@ -12,7 +12,8 @@ warnings.filterwarnings("ignore")
 
 folder_in = '../../data/spatial_placenta_accreta/raw/'
 folder_out = '../../data/spatial_placenta_accreta/patchified/'
-num_bins = 50
+NUM_BINS = 50
+MIN_PIXEL_PER_GRAPH = 20
 
 
 if __name__ == '__main__':
@@ -86,8 +87,8 @@ if __name__ == '__main__':
         final_matrix = final_matrix[barcode_position_valid, :]
 
         # Subset the data by spatial location.
-        cell_bins = pd.DataFrame({'pixel_row_bin': pd.cut(barcode_position['pixel_row_in_highres'], bins=num_bins, labels=False, include_lowest=True),
-                                  'pixel_col_bin': pd.cut(barcode_position['pixel_col_in_highres'], bins=num_bins, labels=False, include_lowest=True),
+        cell_bins = pd.DataFrame({'pixel_row_bin': pd.cut(barcode_position['pixel_row_in_highres'], bins=NUM_BINS, labels=False, include_lowest=True),
+                                  'pixel_col_bin': pd.cut(barcode_position['pixel_col_in_highres'], bins=NUM_BINS, labels=False, include_lowest=True),
                                   'pixel_row_in_highres': barcode_position['pixel_row_in_highres'],
                                   'pixel_col_in_highres': barcode_position['pixel_col_in_highres'],
                                   'cell_index': np.arange(len(barcode_position))})
@@ -97,6 +98,10 @@ if __name__ == '__main__':
         for (row_bin, col_bin), group in tqdm(sorted(iterator_bins), total=len(iterator_bins)):
             # Extract pixels corresponding to this group.
             indices = group['cell_index'].values
+            if len(indices) < MIN_PIXEL_PER_GRAPH:
+                print(f'Bin ({row_bin}, {col_bin}) has fewer than {MIN_PIXEL_PER_GRAPH} pixels ({len(indices)}). Skipping this bin.')
+                continue
+
             sub_matrix = final_matrix[indices, :]
             sub_adata = ad.AnnData(X=sub_matrix, obs=pd.DataFrame({'Location': group['cell_index']}), var=pd.DataFrame({'Gene Expression': joined_features}))
             coords = np.concatenate((group['pixel_row_in_highres'].values[:, None], group['pixel_col_in_highres'].values[:, None]), axis=1)
