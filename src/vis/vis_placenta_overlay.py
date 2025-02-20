@@ -1,17 +1,16 @@
 import cv2
 import os
-import json
 from glob import glob
 import numpy as np
 import pandas as pd
+import json
 import anndata as ad
 from tqdm import tqdm
-
 import warnings
-warnings.filterwarnings("ignore")
+from matplotlib import pyplot as plt
 
+warnings.filterwarnings("ignore")
 folder_in = '../../data/spatial_placenta_accreta/raw/'
-folder_out = '../../data/spatial_placenta_accreta/patchified/'
 num_bins = 50
 
 
@@ -66,30 +65,18 @@ if __name__ == '__main__':
 
         barcode_position = barcodes.merge(tissue_position_info, on='barcode', how='inner')
 
-        row_arr, col_arr = barcode_position['pixel_row_in_highres'].to_numpy(), barcode_position['pixel_col_in_highres'].to_numpy()
-        valid_rows = np.logical_and(row_arr > 0, row_arr < image.shape[0])
-        valid_cols = np.logical_and(col_arr > 0, col_arr < image.shape[1])
+        w_arr, h_arr = barcode_position['pixel_row_in_highres'].to_numpy(), barcode_position['pixel_col_in_highres'].to_numpy()
+        valid_rows = np.logical_and(w_arr > 0, w_arr < image.shape[0])
+        valid_cols = np.logical_and(h_arr > 0, h_arr < image.shape[1])
         valid_items = np.logical_and(valid_rows, valid_cols)
-        barcode_position = barcode_position[valid_items]
-        barcode_position['pixel_row_in_highres'] = np.floor(barcode_position['pixel_row_in_highres']).astype(int)
-        barcode_position['pixel_col_in_highres'] = np.floor(barcode_position['pixel_col_in_highres']).astype(int)
+        w_arr, h_arr = w_arr[valid_items], h_arr[valid_items]
+        assert len(h_arr) == len(w_arr)
 
-        # Subset the data by spatial location.
-        cell_bins = pd.DataFrame({'pixel_row_bin': pd.cut(barcode_position['pixel_row_in_highres'], bins=num_bins, labels=False, include_lowest=True),
-                                  'pixel_col_bin': pd.cut(barcode_position['pixel_col_in_highres'], bins=num_bins, labels=False, include_lowest=True),
-                                  'pixel_row_in_highres': barcode_position['pixel_row_in_highres'],
-                                  'pixel_col_in_highres': barcode_position['pixel_col_in_highres'],
-                                  'cell_index': np.arange(len(barcode_position))})
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(image)
+        ax.scatter(np.floor(h_arr), np.floor(w_arr), s=0.1, color='firebrick', alpha=0.02)
+        fig.tight_layout()
+        fig.savefig('wtf.png')
 
-        # Iterate over groups and save them separately.
-        iterator_bins = cell_bins.groupby(['pixel_row_bin', 'pixel_col_bin'])
-        for (row_bin, col_bin), group in tqdm(iterator_bins, total=len(iterator_bins)):
-            # Extract rows corresponding to this group
-            indices = group['cell_index'].values
-            sub_matrix = matrix.X.T[indices, :]  # Select rows for the group
-            sub_adata = ad.AnnData(X=sub_matrix, obs=pd.DataFrame({'Location': group['cell_index']}), var=pd.DataFrame({'Gene Expression': joined_features}))
-            coords = np.concatenate((group['pixel_row_in_highres'].values[:, None], group['pixel_col_in_highres'].values[:, None]), axis=1)
-            sub_adata.obsm['spatial'] = coords
-
-            os.makedirs(folder_out, exist_ok=True)
-            sub_adata.write(os.path.join(folder_out, f'{target_folder}_Bin-{str(row_bin).zfill(2)}-{str(col_bin).zfill(2)}_spatial_matrix.h5ad'))
+        import pdb; pdb.set_trace()
