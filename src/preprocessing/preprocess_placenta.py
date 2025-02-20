@@ -66,13 +66,24 @@ if __name__ == '__main__':
 
         barcode_position = barcodes.merge(tissue_position_info, on='barcode', how='inner')
 
+        # NOTE: Filter pixels outside the image.
         row_arr, col_arr = barcode_position['pixel_row_in_highres'].to_numpy(), barcode_position['pixel_col_in_highres'].to_numpy()
         valid_rows = np.logical_and(row_arr > 0, row_arr < image.shape[0])
         valid_cols = np.logical_and(col_arr > 0, col_arr < image.shape[1])
-        valid_items = np.logical_and(valid_rows, valid_cols)
-        barcode_position = barcode_position[valid_items]
+        barcode_position_in_image = np.logical_and(valid_rows, valid_cols)
+        assert barcode_position.shape[0] == barcode_position_in_image.shape[0]
+
+        # NOTE: Filter underexpressed pixels. Not filtering unexpressed genes because they may vary across images.
+        final_matrix = matrix.X.T
+        # Remove pixels where zero gene is expressed.
+        barcode_position_expressed = np.array(final_matrix.sum(axis=1) > 0).reshape(-1)
+
+        # Apply filtering.
+        barcode_position_valid = np.logical_and(barcode_position_in_image, barcode_position_expressed)
+        barcode_position = barcode_position[barcode_position_valid]
         barcode_position['pixel_row_in_highres'] = np.floor(barcode_position['pixel_row_in_highres']).astype(int)
         barcode_position['pixel_col_in_highres'] = np.floor(barcode_position['pixel_col_in_highres']).astype(int)
+        final_matrix = final_matrix[barcode_position_valid, :]
 
         # Subset the data by spatial location.
         cell_bins = pd.DataFrame({'pixel_row_bin': pd.cut(barcode_position['pixel_row_in_highres'], bins=num_bins, labels=False, include_lowest=True),
@@ -83,10 +94,10 @@ if __name__ == '__main__':
 
         # Iterate over groups and save them separately.
         iterator_bins = cell_bins.groupby(['pixel_row_bin', 'pixel_col_bin'])
-        for (row_bin, col_bin), group in tqdm(iterator_bins, total=len(iterator_bins)):
-            # Extract rows corresponding to this group
+        for (row_bin, col_bin), group in tqdm(sorted(iterator_bins), total=len(iterator_bins)):
+            # Extract pixels corresponding to this group.
             indices = group['cell_index'].values
-            sub_matrix = matrix.X.T[indices, :]  # Select rows for the group
+            sub_matrix = final_matrix[indices, :]
             sub_adata = ad.AnnData(X=sub_matrix, obs=pd.DataFrame({'Location': group['cell_index']}), var=pd.DataFrame({'Gene Expression': joined_features}))
             coords = np.concatenate((group['pixel_row_in_highres'].values[:, None], group['pixel_col_in_highres'].values[:, None]), axis=1)
             sub_adata.obsm['spatial'] = coords

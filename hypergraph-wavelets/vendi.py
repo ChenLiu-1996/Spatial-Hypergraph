@@ -1,15 +1,15 @@
 from vendi_score import vendi
 import torch
-import argparse
+import argparse 
 import numpy as np
-import os
+import os 
 import anndata as ad
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--data_dir', type=str, default='./data/interim/section_data/')
-    argparser.add_argument('--feature_dir', type=str, default='./data/processed/wavelet_features/')
-    argparser.add_argument('--output_dir', type=str, default='./data/processed/vendi_out/')
+    argparser.add_argument('--data_dir', type=str, default='/vast/palmer/pi/krishnaswamy_smita/jcr222/hypergraphs/data/')
+    argparser.add_argument('--feature_dir', type=str, default='wavelet_features/')
+    argparser.add_argument('--output_dir', type=str, default='vendi_out/')
     argparser.add_argument('--k_hop', type=int, default=1)
     argparser.add_argument('--hyperedge_features', nargs='+', default = ['cell_type_hist', 'gene_expression', 'gene_correlation', 'diffused_gene_correlation'], type=str)
     argparser.add_argument('--vendi_score_subset', type=int, default=-1)
@@ -38,12 +38,11 @@ if __name__ == '__main__':
         print(DATA_DIR + dataset_name)
         adata = ad.read_h5ad(DATA_DIR + dataset_name)
 
-
         # load in the wavelet features
         hyperedge_feat = torch.load(FEATURE_DIR + dataset_name + '_neighborhood_feat.pt', weights_only=True)
 
         #print(f'num features: {hyperedge_feat.shape[1]}')
-
+        
         # convert to numpy and set nans to 0
         hyperedge_feat = hyperedge_feat.detach()#.numpy()
         node_feat = hyperedge_feat
@@ -61,7 +60,7 @@ if __name__ == '__main__':
             vendi_score = vendi.score_dual(cov)
             sd = 0
         else:
-            # randomly subset node_feat
+            # randomly subset node_feat 
             reps = []
             for _ in range(5):
                 node_feat = node_feat[torch.randperm(node_feat.shape[0])[:vendi_score_subset]]
@@ -79,8 +78,7 @@ if __name__ == '__main__':
         # print the vendi score and sd
         print(f'Vendi Score: {vendi_score} +/- {sd}')
         # save the vendi score
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        with open(os.path.join(OUTPUT_DIR, dataset_name + '_vendi_score.txt'), 'w') as f:
+        with open(OUTPUT_DIR + dataset_name + '_vendi_score.txt', 'w') as f:
             f.write(f'Vendi Score: {vendi_score} +/- {sd}')
         f.close()
 

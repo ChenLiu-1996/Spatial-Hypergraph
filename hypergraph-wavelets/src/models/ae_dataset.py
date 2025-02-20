@@ -22,7 +22,7 @@ class PointCloudDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.pointcloud)
-
+    
     def __getitem__(self, idx):
         if self.shuffle:
             batch_idxs = torch.randperm(len(self.pointcloud))[:self.batch_size]
@@ -32,7 +32,7 @@ class PointCloudDataset(torch.utils.data.Dataset):
         batch['x'] = self.pointcloud[batch_idxs]
         dist_mat = self.distances[batch_idxs, :][:, batch_idxs]
         triu_ind = np.triu_indices(dist_mat.size(0), k=1)
-        batch['d'] = dist_mat[triu_ind[0], triu_ind[1]]
+        batch['d'] = dist_mat[triu_ind[0], triu_ind[1]]   
         if len(self.xor_dists.shape) == 3:
             xor_dist_mat = self.xor_dists[:, batch_idxs, :][:, :, batch_idxs]
             batch['m'] = xor_dist_mat[:, triu_ind[0], triu_ind[1]]
@@ -47,8 +47,8 @@ def dataloader_from_pc(pointcloud, distances, xor_dists, batch_size = 64, shuffl
     return dataloader
 
 # def train_and_testloader_from_pc(
-def train_val_loader_from_pc(
-    pointcloud, distances, xor_dists, batch_size = 64, train_val_split = 0.8, shuffle=True, seed=42
+def train_valid_loader_from_pc(
+    pointcloud, distances, xor_dists, batch_size = 64, train_valid_split = 0.8, shuffle=True, seed=42
 ):
     X = pointcloud
     D = distances
@@ -58,20 +58,20 @@ def train_val_loader_from_pc(
         X = X[idxs]
         D = D[idxs][:,idxs]
     xD = xor_dists
-    split_idx = int(len(X)*train_val_split)
+    split_idx = int(len(X)*train_valid_split)
     X_train = X[:split_idx]
-    X_val = X[split_idx:]
+    X_test = X[split_idx:]
     D_train = D[:split_idx,:split_idx]
-    D_val = D[split_idx:,split_idx:]
+    D_test = D[split_idx:,split_idx:]
     if len(xor_dists.shape) == 3:
         xD_train = xD[:,:split_idx,:split_idx]
-        xD_val = xD[:,split_idx:,split_idx:]
+        xD_test = xD[:,split_idx:,split_idx:]
     else:
         xD_train = xD[:split_idx,:split_idx]
-        xD_val = xD[split_idx:,split_idx:]
-    train_loader = dataloader_from_pc(X_train, D_train, xD_train, batch_size)
-    val_loader = dataloader_from_pc(X_val, D_val, xD_val, batch_size)
-    return train_loader, val_loader
+        xD_test = xD[split_idx:,split_idx:]
+    trainloader = dataloader_from_pc(X_train, D_train, xD_train, batch_size)
+    testloader = dataloader_from_pc(X_test, D_test, xD_test, batch_size)
+    return trainloader, testloader
 
 
 
@@ -90,7 +90,7 @@ def train_val_loader_from_pc(
 
 #     def __len__(self):
 #         return len(self.pointcloud)
-
+    
 #     def __getitem__(self, idx):
 #         if self.shuffle:
 #             batch_idxs = torch.randperm(len(self.pointcloud))[:self.batch_size]
@@ -100,7 +100,7 @@ def train_val_loader_from_pc(
 #         batch['x'] = self.pointcloud[batch_idxs]
 #         dist_mat = self.distances[:, batch_idxs, :][:, :, batch_idxs]
 #         triu_ind = np.triu_indices(dist_mat.size(0), k=1)
-#         batch['d'] = dist_mat[:, triu_ind[0], triu_ind[1]]
+#         batch['d'] = dist_mat[:, triu_ind[0], triu_ind[1]]   
 #         xor_dist_mat = self.xor_dists[:, batch_idxs, :][:, :, batch_idxs]
 
 #         return batch
@@ -127,8 +127,8 @@ def train_val_loader_from_pc(
 #     testloader = dataloader_from_pc(X_test, D_test, xD_test, batch_size)
 #     return trainloader, testloader
 
-def train_val_test_loader_from_pc(
-    pointcloud, distances, batch_size = 64, train_test_split = 0.8, train_val_split = 0.8, shuffle=True, seed=42
+def train_valid_testloader_from_pc(
+    pointcloud, distances, batch_size = 64, train_test_split = 0.8, train_valid_split = 0.8, shuffle=True, seed=42
 ):
     X = pointcloud
     D = distances
@@ -138,17 +138,17 @@ def train_val_test_loader_from_pc(
         X = X[idxs]
         D = D[:,idxs,:][:,:,idxs]
     split_idx = int(len(X)*train_test_split)
-    split_val_idx = int(split_idx*train_val_split)
+    split_val_idx = int(split_idx*train_valid_split)
     X_train = X[:split_val_idx]
-    X_val = X[split_val_idx:split_idx]
+    X_valid = X[split_val_idx:split_idx]
     X_test = X[split_idx:]
     D_train = D[:,:split_val_idx,:split_val_idx]
-    D_val = D[:,split_val_idx:split_idx,split_val_idx:split_idx]
+    D_valid = D[:,split_val_idx:split_idx,split_val_idx:split_idx]
     D_test = D[:,split_idx:,split_idx:]
-    train_loader = dataloader_from_pc(X_train, D_train, batch_size)
-    val_loader = dataloader_from_pc(X_val, D_val, batch_size)
-    test_loader = dataloader_from_pc(X_test, D_test, batch_size)
-    return train_loader, val_loader, test_loader
+    trainloader = dataloader_from_pc(X_train, D_train, batch_size)
+    validloader = dataloader_from_pc(X_valid, D_valid, batch_size)
+    testloader = dataloader_from_pc(X_test, D_test, batch_size)
+    return trainloader, validloader, testloader
 
 class LogTransform():
     def __init__(self, eps=1e-10, device=None):
@@ -159,7 +159,7 @@ class LogTransform():
         return self.transform_cpu(X)
     def transform_cpu(self, X):
         return np.log(X+self.eps)
-
+    
 class NonTransform():
     def __init__(self, device=None):
         pass
@@ -167,7 +167,7 @@ class NonTransform():
         return X
     def fit_transform(self, X):
         return X
-
+    
 class StandardScaler():
     def __init__(self):
         self.ss = SS()
@@ -219,17 +219,17 @@ def minmax_scale_transform_torch(X, min_, scale_):
 def yeo_johnson_transform_torch(X, lambdas):
     """
     Applies the Yeo-Johnson transformation to a PyTorch tensor.
-
+    
     Parameters:
     X (torch.Tensor): The data to be transformed.
     lambdas (torch.Tensor or ndarray): The lambda parameters from the fitted sklearn PowerTransformer.
-
+    
     Returns:
     torch.Tensor: The transformed data.
     """
     lambdas = lambdas.to(device=X.device, dtype=X.dtype)
     X_transformed = torch.zeros_like(X, device=X.device, dtype=X.dtype)
-
+    
     # Define two masks for the conditional operation
     positive = X >= 0
     negative = X < 0

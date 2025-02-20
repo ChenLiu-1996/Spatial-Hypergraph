@@ -19,6 +19,8 @@ python -m pip install anndata torch_geometric einops geovoronoi vendi-score
 python -m pip install numpy==1.26
 python -m pip install pyarrow
 python -m pip install transformers
+python -m pip install dhg==0.9.4 --no-deps
+python -m pip install optuna torchmetrics scanpy
 
 export PROJ_DIR=/usr/local
 export PROJ_LIBDIR=/usr/local/lib/
