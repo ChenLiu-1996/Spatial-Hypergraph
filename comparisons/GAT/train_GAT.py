@@ -58,6 +58,7 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
 
         train_loss += loss.mean().item()
 
+        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
             y_true_arr = y_true.flatten().detach().cpu().numpy()
             y_pred_arr = y_pred.flatten().detach().cpu().numpy()
@@ -84,6 +85,7 @@ def val_epoch(model, val_loader, loss_fn, device):
 
         val_loss += loss.mean().item()
 
+        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
             y_true_arr = y_true.flatten().detach().cpu().numpy()
             y_pred_arr = y_pred.flatten().detach().cpu().numpy()
@@ -110,6 +112,7 @@ def test_model(model, test_loader, loss_fn, device):
 
         test_loss += loss.mean().item()
 
+        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
             y_true_arr = y_true.flatten().detach().cpu().numpy()
             y_pred_arr = y_pred.flatten().detach().cpu().numpy()
@@ -127,12 +130,12 @@ def test_model(model, test_loader, loss_fn, device):
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Entry point.')
-    args.add_argument('--train-val-test-ratio', default='8:1:1', type=str)
-    args.add_argument('--max-epochs', default=100, type=int)
-    args.add_argument('--max-training-iters', default=512, type=int)
+    args.add_argument('--train-val-test-ratio', default='6:2:2', type=str)
+    args.add_argument('--max-epochs', default=50, type=int)
+    args.add_argument('--max-training-iters', default=256, type=int)
     args.add_argument('--batch-size', default=64, type=int)
     args.add_argument('--learning-rate', default=1e-3, type=float)
-    args.add_argument('--num-workers', default=4, type=int)
+    args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
 

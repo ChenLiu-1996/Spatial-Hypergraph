@@ -88,7 +88,7 @@ def return_graph_data(adata):
     data.x = torch.tensor(adata.X.todense(), dtype=torch.float)
     return data
 
-def create_knn_graph(adata, K: int = 10):
+def create_knn_graph(adata, K: int = 5):
     sparseA = kneighbors_graph(adata.obsm['spatial'], n_neighbors=K, mode='connectivity', include_self=False)
     A = sparseA.todense()
     G = nx.from_numpy_array(A)
