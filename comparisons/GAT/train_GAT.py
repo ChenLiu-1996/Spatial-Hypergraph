@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 from gat_model import GATClassifier
 from torch_geometric.data import DataLoader
-from sklearn.metrics import roc_auc_score, accuracy_score, precision_recall_curve, auc
+from sklearn.metrics import roc_auc_score, accuracy_score
 
 import_dir = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 sys.path.insert(0, import_dir + '/src/utils/')
@@ -58,20 +58,17 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
 
         train_loss += loss.mean().item()
 
-        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
-            y_true_arr = y_true.flatten().detach().cpu().numpy()
-            y_pred_arr = y_pred.flatten().detach().cpu().numpy()
+            y_true_arr = y_true.detach().cpu().numpy()
+            y_pred_arr = y_pred.detach().cpu().numpy()
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.flatten().detach().cpu().numpy()))
-            y_pred_arr = np.hstack((y_pred_arr, y_pred.flatten().detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
 
     train_loss /= min(max_iter, len(train_loader))
-    accuracy = accuracy_score(y_true_arr, y_pred_arr)
-    auroc = roc_auc_score(y_true_arr, y_pred_arr)
-    precision_curve, recall_curve, _ = precision_recall_curve(y_true_arr, y_pred_arr)
-    auprc = auc(recall_curve, precision_curve)
-    return model, train_loss, accuracy, auroc, auprc
+    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
+    return model, train_loss, accuracy, auroc
 
 def val_epoch(model, val_loader, loss_fn, device):
     val_loss = 0
@@ -85,20 +82,17 @@ def val_epoch(model, val_loader, loss_fn, device):
 
         val_loss += loss.mean().item()
 
-        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
-            y_true_arr = y_true.flatten().detach().cpu().numpy()
-            y_pred_arr = y_pred.flatten().detach().cpu().numpy()
+            y_true_arr = y_true.detach().cpu().numpy()
+            y_pred_arr = y_pred.detach().cpu().numpy()
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.flatten().detach().cpu().numpy()))
-            y_pred_arr = np.hstack((y_pred_arr, y_pred.flatten().detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
 
     val_loss /= len(val_loader)
-    accuracy = accuracy_score(y_true_arr, y_pred_arr)
-    auroc = roc_auc_score(y_true_arr, y_pred_arr)
-    precision_curve, recall_curve, _ = precision_recall_curve(y_true_arr, y_pred_arr)
-    auprc = auc(recall_curve, precision_curve)
-    return model, val_loss, accuracy, auroc, auprc
+    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
+    return model, val_loss, accuracy, auroc
 
 def test_model(model, test_loader, loss_fn, device):
     test_loss = 0
@@ -112,20 +106,17 @@ def test_model(model, test_loader, loss_fn, device):
 
         test_loss += loss.mean().item()
 
-        y_pred = torch.argmax(y_pred, dim=1)
         if y_true_arr is None:
-            y_true_arr = y_true.flatten().detach().cpu().numpy()
-            y_pred_arr = y_pred.flatten().detach().cpu().numpy()
+            y_true_arr = y_true.detach().cpu().numpy()
+            y_pred_arr = y_pred.detach().cpu().numpy()
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.flatten().detach().cpu().numpy()))
-            y_pred_arr = np.hstack((y_pred_arr, y_pred.flatten().detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
 
     test_loss /= len(test_loader)
-    accuracy = accuracy_score(y_true_arr, y_pred_arr)
-    auroc = roc_auc_score(y_true_arr, y_pred_arr)
-    precision_curve, recall_curve, _ = precision_recall_curve(y_true_arr, y_pred_arr)
-    auprc = auc(recall_curve, precision_curve)
-    return model, test_loss, accuracy, auroc, auprc
+    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
+    return model, test_loss, accuracy, auroc
 
 
 if __name__ == "__main__":
@@ -170,15 +161,15 @@ if __name__ == "__main__":
     best_val_loss = np.inf
     for epoch_idx in tqdm(range(args.max_epochs)):
         model.train()
-        model, loss, accuracy, auroc, auprc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters)
+        model, loss, accuracy, auroc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters)
         scheduler.step()
-        log(f'Epoch {epoch_idx}/{args.max_epochs}: Training Loss {loss:.3f}, ACC {accuracy:.3f}, AUROC {auroc:.3f}, AUPRC {auprc:.3f}.',
+        log(f'Epoch {epoch_idx}/{args.max_epochs}: Training Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
             filepath=log_file)
 
         with torch.no_grad():
             model.eval()
-            model, loss, accuracy, auroc, auprc = val_epoch(model, val_loader, loss_fn, device)
-            log(f'Validation Loss {loss:.3f}, ACC {accuracy:.3f}, AUROC {auroc:.3f}, AUPRC {auprc:.3f}.',
+            model, loss, accuracy, auroc = val_epoch(model, val_loader, loss_fn, device)
+            log(f'Validation Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
                 filepath=log_file)
 
             if loss < best_val_loss:
@@ -186,9 +177,8 @@ if __name__ == "__main__":
                 torch.save(model.state_dict(), model_save_path)
                 log('Model weights successfully saved.', filepath=log_file)
 
-
     model.eval()
     model.load_state_dict(torch.load(model_save_path, map_location=device))
-    model, loss, accuracy, auroc, auprc = test_model(model, test_loader, loss_fn, device)
-    log(f'\n\nTest Loss {loss:.3f}, ACC {accuracy:.3f}, AUROC {auroc:.3f}, AUPRC {auprc:.3f}.',
+    model, loss, accuracy, auroc = test_model(model, test_loader, loss_fn, device)
+    log(f'\n\nTest Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
         filepath=log_file)
