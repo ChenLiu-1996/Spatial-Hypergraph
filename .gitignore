@@ -1,6 +1,7 @@
 .vscode
 data
 **/__pycache__
+**/results/
 
 # Models
 **/*.pt
