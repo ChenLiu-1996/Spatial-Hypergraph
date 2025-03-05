@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 
 folder_in = '../../data/spatial_placenta_accreta/raw/'
 folder_out = '../../data/spatial_placenta_accreta/patchified/'
-NUM_BINS = 50
+NUM_BINS = 100
 MIN_PIXEL_PER_GRAPH = 20
 
 
