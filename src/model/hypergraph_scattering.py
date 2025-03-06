@@ -191,7 +191,7 @@ class HyperScatteringModule(nn.Module):
             wavelet_matrix[-1, -1] = 1
             self.wavelet_constructor = torch.nn.Parameter(wavelet_matrix)
 
-        self.norm_node = nn.BatchNorm1d(self.num_features)
+        # self.norm_node = nn.BatchNorm1d(self.num_features)
         self.activations = [F.silu]
         self.reshape = reshape
 
@@ -214,8 +214,9 @@ class HyperScatteringModule(nn.Module):
         wavelet_coeffs = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, diffusion_levels) # J x num_nodes x num_features x 1
         wavelet_coeffs_edges = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, edge_diffusion_levels)
 
-        wavelet_coeffs = self.norm_node(rearrange(wavelet_coeffs, 's b l -> (s b) l'))
-        wavelet_coeffs = rearrange(wavelet_coeffs, '(s b) l -> s b l', s=len(self.wavelet_constructor))
+        # TODO: think about normalization?
+        # wavelet_coeffs = self.norm_node(rearrange(wavelet_coeffs, 's b l -> (s b) l'))
+        # wavelet_coeffs = rearrange(wavelet_coeffs, '(s b) l -> s b l', s=len(self.wavelet_constructor))
         activated = [self.activations[i](wavelet_coeffs) for i in range(len(self.activations))]
         activated_edges = [self.activations[i](wavelet_coeffs_edges) for i in range(len(self.activations))]
         s_nodes = rearrange(activated, 'a w n f -> n (w f a)') if self.reshape else torch.stack(activated)
