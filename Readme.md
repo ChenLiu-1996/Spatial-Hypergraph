@@ -1,5 +1,32 @@
 
 
+## Reproducing the results
+1. Preprocess the data
+1.1 If using all the genes.
+```
+cd src/preprocessing
+python preprocess_placenta_all_genes.py
+```
+
+1.2 If using a selected subset of genes of interest.
+```
+cd src/preprocessing
+python preprocess_placenta_selected_genes.py
+```
+
+2. Train the hypergraph wavelet model.
+2.1 If using all the genes.
+```
+cd src
+python train.py --data-folder '$ROOT/data/spatial_placenta_accreta/patchified_all_genes/'
+```
+
+2.2 If using a selected subset of genes of interest.
+```
+cd src
+python train.py --data-folder '$ROOT/data/spatial_placenta_accreta/patchified_selected_genes/'
+```
+
 
 ## Dependencies
 We developed the codebase in a miniconda environment.

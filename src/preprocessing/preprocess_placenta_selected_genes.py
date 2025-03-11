@@ -11,12 +11,34 @@ import warnings
 warnings.filterwarnings("ignore")
 
 folder_in = '../../data/spatial_placenta_accreta/raw/'
-folder_out = '../../data/spatial_placenta_accreta/patchified/'
+folder_out = '../../data/spatial_placenta_accreta/patchified_selected_genes/'
 NUM_BINS = 100
 MIN_PIXEL_PER_GRAPH = 20
 
+GENES_BY_CELL_TYPE = {
+    'Cytotrophoblast': ['KRT7', 'STMN1', 'PARP1', 'PAGE4', 'GATA3', 'KRT8', 'SPINT1'],
+    'Syncytiotrophoblast': ['CSH2', 'INHA', 'HSD3B1', 'ESR1', 'PGR', 'CD274', 'PSG4', 'ERVFRD-1', 'LGALS16', 'GDF15',
+                            'INSL4', 'CGA', 'CYP19A1', 'TFPI'],
+    'EVT': ['KRT8', 'HSD3B1', 'CSH2', 'CCNE1', 'MCAM', 'MUC4', 'ASCL2', 'ITGA5', 'ITGB1', 'INHA', 'PAPPA2', 'CDH5'],
+    'smooth_muscle_Endothelial': ['PECAM1', 'CDH5', 'CD34', 'KDR', 'IFI27', 'VWF'],
+    'Lymphatic_Endothelial': ['TFF3'],
+    'Hoffbauer': ['CD163', 'LYVE1', 'VSIG4', 'MRC1', 'HPGDS', 'CD14'],
+    'Mesenchymal': ['COL1A1', 'TAGLN', 'LUM', 'APOD', 'DCN', 'ACTA2'],
+    'Fibroblasts': ['COL1A1', 'TAGLN', 'LUM', 'DCN'],
+    'B-cell': ['CD79A'],
+    'T-cell': ['CD3D'],
+    'NK': ['KLRB1'],
+    'Monocyte': ['CD14', 'FCGR3A'],
+    'Plasma': ['XBP1', 'IGHA1', 'IGHA2'],
+    'Decidua': ['PRL', 'FCGR3A', 'IGFBP1', 'ITGAX', 'CCNA1', 'RB1', 'CDK1', 'DKK1', 'WNT4'],
+    'Myometrial': ['ACTA2', 'CNN1', 'OXTR'],
+}
+
 
 if __name__ == '__main__':
+    # Get all genes of interest.
+    selected_genes = np.unique(sum(GENES_BY_CELL_TYPE.values(), []))
+
     # Find the folders for pixel-by-gene matrices and the corresponding spatial images.
     all_folder_paths = sorted(glob(os.path.join(folder_in, '0*', 'filtered_feature_bc_matrix')))
     all_image_paths = sorted(glob(os.path.join(folder_in, '0*', 'spatial', 'tissue_hires_image.png')))
@@ -41,7 +63,11 @@ if __name__ == '__main__':
         matrix = ad.io.read_mtx(os.path.join(source_mat_folder, 'matrix.mtx'))
         barcodes = pd.read_csv(os.path.join(source_mat_folder, 'barcodes.tsv'), header=None, sep="\t")
         features = pd.read_csv(os.path.join(source_mat_folder, 'features.tsv'), header=None, sep="\t")
+        # Only take the selected genes.
+        selected_feature_indices = features[1].isin(selected_genes).to_numpy()
+        features = features[selected_feature_indices]
         joined_features = [f"{f0}_{f1}" for f0, f1 in zip(features[0], features[1])]
+        del features
 
         barcodes['barcode'] = barcodes[0]
         barcodes = barcodes.drop(0, axis=1)
@@ -74,9 +100,10 @@ if __name__ == '__main__':
         barcode_position_in_image = np.logical_and(valid_rows, valid_cols)
         assert barcode_position.shape[0] == barcode_position_in_image.shape[0]
 
-        # NOTE: Filter underexpressed pixels. Not filtering unexpressed genes because they may vary across images.
+        # NOTE: Only keep selected genes of interest.
         final_matrix = matrix.X.T
-        # Remove pixels where zero gene is expressed.
+        final_matrix = final_matrix[:, selected_feature_indices]
+        # NOTE: Filter underexpressed pixels. Remove pixels where zero gene is expressed.
         barcode_position_expressed = np.array(final_matrix.sum(axis=1) > 0).reshape(-1)
 
         # Apply filtering.
