@@ -67,7 +67,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map):
         hypergraph_label_arr = npzfile['hypergraph_label_arr']
 
     # NOTE: Plot visualization where each node is a hypergraph (figure 1) or a hyperedge (figure 2).
-    for node_rep, file_name, embedding_label_pair in \
+    for fig_title, file_name, embedding_label_pair in \
         zip(['Each node is a hypergraph.', 'Each node is a hyperedge.'],
             ['hypergraph_embeddings.png', 'hyperedge_embeddings.png'],
             [(hypergraph_emb_arr, hypergraph_label_arr), (hyperedge_emb_arr, hyperedge_label_arr)]):
@@ -93,7 +93,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map):
                 fontsize=10,
                 s=5,
                 alpha=0.5)
-        fig.suptitle(node_rep)
+        fig.suptitle(fig_title)
         fig.tight_layout(pad=2)
         fig.savefig(os.path.join(os.path.dirname(embedding_save_path), file_name))
 
