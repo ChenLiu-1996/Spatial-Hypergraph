@@ -163,6 +163,7 @@ if __name__ == "__main__":
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
+    args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
     seed_everything(args.random_seed)
@@ -176,6 +177,7 @@ if __name__ == "__main__":
         in_channels=64,
         hidden_channels=16,
         out_channels=3,
+        num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
         activation=None,  # just get one layer of wavelet transform
@@ -200,14 +202,14 @@ if __name__ == "__main__":
     # Load the data.
     train_loader, val_loader, test_loader = prepare_dataloaders(args)
 
-    log_file = os.path.join(ROOT_DIR, 'results', f'log_{os.path.basename(args.data_folder)}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_{os.path.basename(args.data_folder)}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
+    log_file = os.path.join(ROOT_DIR, 'results', f'log_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
+    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Log the config.
     config_str = 'Config: \n'
-    for key in args.keys():
-        config_str += '%s: %s\n' % (key, getattr(args, key))
+    for key in vars(args).keys():
+        config_str += '%s: %s\n' % (key, vars(args)[key])
     config_str += '\nTraining History:'
     log(config_str, filepath=log_file, to_console=True)
 

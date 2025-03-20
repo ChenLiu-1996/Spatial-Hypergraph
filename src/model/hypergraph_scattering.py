@@ -13,6 +13,7 @@ modified from https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_
 """
 
 from typing import Tuple, Optional
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -184,12 +185,13 @@ class HyperScatteringModule(nn.Module):
             assert scale_list[1] == 1
 
             self.diffusion_levels = scale_list[-1]
-            wavelet_matrix = torch.zeros(len(scale_list), self.diffusion_levels+1, dtype=torch.float, requires_grad=trainable_scales)
+            wavelet_matrix = np.zeros((len(scale_list), self.diffusion_levels+1))
             for i in range(len(scale_list) - 1):
                 wavelet_matrix[i, scale_list[i]] = 1
                 wavelet_matrix[i, scale_list[i+1]] = -1
             wavelet_matrix[-1, -1] = 1
-            self.wavelet_constructor = torch.nn.Parameter(wavelet_matrix)
+            self.wavelet_constructor = torch.nn.Parameter(
+                torch.from_numpy(wavelet_matrix, dtype=torch.float, requires_grad=trainable_scales))
 
         # self.norm_node = nn.BatchNorm1d(self.num_features)
         self.activations = [F.silu]
@@ -265,6 +267,7 @@ class HypergraphScatteringNet(nn.Module):
                  in_channels,
                  hidden_channels,
                  out_channels,
+                 num_features: int = 18085,
                  trainable_laziness=False,
                  trainable_scales=False,
                  fixed_weights=True,
@@ -293,6 +296,7 @@ class HypergraphScatteringNet(nn.Module):
             if layout_ == 'hsm':
                 self.layers.append(HyperScatteringModule(
                     self.out_dimensions[-1],
+                    num_features=num_features,
                     trainable_laziness=trainable_laziness,
                     trainable_scales=self.trainable_scales,
                     fixed_weights=self.fixed_weights,
