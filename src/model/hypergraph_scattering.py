@@ -1,4 +1,4 @@
-"""
+'''
 HSN rewritten with pytorch geometric, can operate on batched hypergraphs.
 the data is stored in the format of pytorch geometric.
 see https://github.com/pyg-team/pytorch_geometric/blob/cf24b4bcb4e825537ba08d8fc5f31073e2cd84c7/torch_geometric/data/hypergraph_data.py
@@ -10,7 +10,7 @@ for example:
     hyperedge_weight = torch.tensor([1, 1], dtype=torch.float)
 
 modified from https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/conv/hypergraph_conv.html#HypergraphConv
-"""
+'''
 
 from typing import Tuple, Optional
 import numpy as np
@@ -26,9 +26,9 @@ from torch_geometric.nn import global_mean_pool, global_max_pool, global_add_poo
 
 class LazyLayer(torch.nn.Module):
 
-    """ Currently a single elementwise multiplication with one laziness parameter per
+    ''' Currently a single elementwise multiplication with one laziness parameter per
     channel. this is run through a softmax so that this is a real laziness parameter
-    """
+    '''
 
     def __init__(self, n):
         super().__init__()
@@ -190,8 +190,8 @@ class HyperScatteringModule(nn.Module):
                 wavelet_matrix[i, scale_list[i]] = 1
                 wavelet_matrix[i, scale_list[i+1]] = -1
             wavelet_matrix[-1, -1] = 1
-            self.wavelet_constructor = torch.nn.Parameter(
-                torch.from_numpy(wavelet_matrix, dtype=torch.float, requires_grad=trainable_scales))
+            self.wavelet_constructor = torch.nn.Parameter(torch.from_numpy(wavelet_matrix).float(),
+                                                          requires_grad=trainable_scales)
 
         # self.norm_node = nn.BatchNorm1d(self.num_features)
         self.activations = [F.silu]
@@ -232,7 +232,7 @@ class HyperScatteringModule(nn.Module):
         return self.num_features * len(self.wavelet_constructor)
 
 class HypergraphScatteringNet(nn.Module):
-    """
+    '''
     Hypergraph Scattering Network (HSN) module.
     Now assuming only using the node features output.
 
@@ -261,7 +261,7 @@ class HypergraphScatteringNet(nn.Module):
         normalize (str): Normalization method to use.
         pooling (str): Pooling method to use.
 
-    """
+    '''
 
     def __init__(self,
                  in_channels,
@@ -329,8 +329,9 @@ class HypergraphScatteringNet(nn.Module):
                 hyperedge_weight: Optional[torch.Tensor] = None,
                 hyperedge_attr: Optional[torch.Tensor] = None,
                 num_edges: Optional[int] = None,
-                batch: Optional[torch.Tensor] = None):
-        """
+                batch: Optional[torch.Tensor] = None,
+                return_wavelet_embeddings: bool = False):
+        '''
         Forward pass of the HSN module.
 
         Args:
@@ -340,12 +341,13 @@ class HypergraphScatteringNet(nn.Module):
             hyperedge_attr (torch.Tensor, optional): Hyperedge attribute tensor.
             num_edges (int, optional): Number of edges.
             batch (torch.Tensor, optional): Batch tensor.
+            return_wavelet_embeddings (bool): Whether to return the wavelet embeddings.
 
         Returns:
             torch.Tensor: Output tensor.
             torch.Tensor: Hyperedge attribute tensor.
 
-        """
+        '''
         # row, col = hyperedge_index
         # edge_batch = batch[row]
         curr_value = 0
@@ -355,15 +357,18 @@ class HypergraphScatteringNet(nn.Module):
                 node_in_hyperedge.append(hyperedge_index[0, ind])
                 curr_value += 1
         edge_batch = torch.tensor(node_in_hyperedge, device = hyperedge_index.device)
-        for il, layer in enumerate(self.layers):
-            if self.layout[il] == 'hsm':
+        for i, layer in enumerate(self.layers):
+            if self.layout[i] == 'hsm':
                 x, hyperedge_attr = layer(x, hyperedge_index, hyperedge_weight, hyperedge_attr, num_edges)
                 # TODO add batch norm before non-linearity inside the hsm!
-            elif self.layout[il] == 'dim_reduction':
+            elif self.layout[i] == 'dim_reduction':
                 x = layer(x) # TODO add batch norm and non-linearity!
                 hyperedge_attr = layer(hyperedge_attr)
             else:
                 raise ValueError
+
+        if return_wavelet_embeddings:
+            return x
 
         # Apply selected pooling
         if self.pooling is not None:

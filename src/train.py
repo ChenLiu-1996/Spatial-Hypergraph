@@ -5,7 +5,7 @@ import os
 import sys
 from tqdm import tqdm
 from model.hypergraph_scattering import HypergraphScatteringNet
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score, accuracy_score
 
 import_dir = '/'.join(os.path.realpath(__file__).split('/')[:-2])

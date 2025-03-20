@@ -77,6 +77,6 @@ if __name__ == '__main__':
         ax.imshow(image)
         ax.scatter(np.floor(h_arr), np.floor(w_arr), s=0.1, color='firebrick', alpha=0.02)
         fig.tight_layout()
-        fig.savefig('wtf.png')
+        fig.savefig('overlay.png')
 
         import pdb; pdb.set_trace()
