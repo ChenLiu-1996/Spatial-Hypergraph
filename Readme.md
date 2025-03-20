@@ -42,6 +42,7 @@ conda activate scdata
 conda install scikit-learn scikit-image pandas matplotlib seaborn tqdm -c pytorch -c anaconda -c conda-forge -y
 python -m pip install opencv-python
 python -m pip install phate
+python -m pip install meld
 python -m pip install anndata torch_geometric einops geovoronoi vendi-score
 python -m pip install numpy==1.26
 python -m pip install pyarrow
