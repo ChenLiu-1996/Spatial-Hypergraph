@@ -58,11 +58,11 @@ def save_test_set_embeddings(model, test_loader, device, embedding_save_path):
                  hypergraph_emb_arr=hypergraph_emb_arr, hypergraph_label_arr=hypergraph_label_arr)
     return
 
-def visualize_test_set_embeddings(embedding_save_path, class_map):
+def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_sampling_rate: float = 0.1):
     with open(embedding_save_path, 'rb') as f:
         npzfile = np.load(f)
-        hyperedge_label_arr = npzfile['hyperedge_label_arr']
         hyperedge_emb_arr = npzfile['hyperedge_emb_arr']
+        hyperedge_label_arr = npzfile['hyperedge_label_arr']
         hypergraph_emb_arr = npzfile['hypergraph_emb_arr']
         hypergraph_label_arr = npzfile['hypergraph_label_arr']
 
@@ -73,6 +73,12 @@ def visualize_test_set_embeddings(embedding_save_path, class_map):
             [(hypergraph_emb_arr, hypergraph_label_arr), (hyperedge_emb_arr, hyperedge_label_arr)]):
 
         embedding_arr, label_arr = embedding_label_pair
+
+        # Subsample the hyperedges, otherwise it gives OOM.
+        if file_name == 'hyperedge_embeddings.png' and hyperedge_sampling_rate is not None:
+            sampled_indices = np.random.choice(len(embedding_arr), size=int(hyperedge_sampling_rate * len(embedding_arr)))
+            embedding_arr = embedding_arr[sampled_indices, :]
+            label_arr = label_arr[sampled_indices, :]
 
         phate_op = phate.PHATE(random_state=args.random_seed, n_jobs=args.num_workers, verbose=True)
         data_phate = phate_op.fit_transform(normalize(embedding_arr, axis=1))
@@ -93,7 +99,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map):
                 fontsize=10,
                 s=5,
                 alpha=0.5)
-        fig.suptitle(fig_title)
+        fig.suptitle(fig_title, fontsize=20)
         fig.tight_layout(pad=2)
         fig.savefig(os.path.join(os.path.dirname(embedding_save_path), file_name))
 
@@ -102,7 +108,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map):
         sample_likelihoods = meld.utils.normalize_densities(sample_densities)
         for class_idx, class_name in class_map.items():
             ax = fig.add_subplot(2, len(class_map.items()), len(class_map.items()) + class_idx + 1)
-            color_arr = sample_likelihoods[label_arr == class_idx]
+            color_arr = sample_likelihoods[class_idx]
             scprep.plot.scatter2d(
                 data_phate,
                 c=color_arr,
