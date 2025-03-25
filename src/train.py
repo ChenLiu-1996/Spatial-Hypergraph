@@ -26,9 +26,9 @@ ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-2])
 
 def prepare_dataloaders(args):
     if args.dataset == 'placenta':
-        dataset = PlacentaDatasetHypergraph(data_folder=args.data_folder)
+        dataset = PlacentaDatasetHypergraph(data_folder=args.data_folder, k_hop=args.k_hop)
     elif args.dataset == 'mibi':
-        dataset = MIBIDatasetHypergraph(data_folder=args.data_folder)
+        dataset = MIBIDatasetHypergraph(data_folder=args.data_folder, k_hop=args.k_hop)
 
     # Train/val/test split
     ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
@@ -170,6 +170,7 @@ if __name__ == "__main__":
     args.add_argument('--desired-batch-size', default=16, type=int)
     args.add_argument('--learning-rate', default=1e-3, type=float)
     args.add_argument('--trainable-scales', action='store_true')
+    args.add_argument('--k-hop', default=3, type=int)
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)
@@ -213,8 +214,8 @@ if __name__ == "__main__":
         max_epochs=args.max_epochs)
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    log_file = os.path.join(ROOT_DIR, 'results', f'log_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
+    log_file = os.path.join(ROOT_DIR, 'results', f'log_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
+    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Log the config.

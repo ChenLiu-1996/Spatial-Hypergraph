@@ -33,9 +33,11 @@ class PlacentaDataset(Dataset):
 
     def __init__(self,
                  data_folder: str = '../../data/spatial_placenta_accreta/patchified_all_genes/',
+                 k_hop: int = 3,
                  transform=None):
 
         self._load_data(data_folder)
+        self.k_hop = k_hop
         self.transform = transform
 
     def _load_data(self, data_folder: str) -> None:
@@ -107,7 +109,7 @@ class PlacentaDatasetHypergraph(PlacentaDataset):
         node_features = graph_data.x
         labels = graph_data.y
         graph = Graph(num_vertices, edge_list)
-        hypergraph = Hypergraph.from_graph_kHop(graph, k=1)
+        hypergraph = Hypergraph.from_graph_kHop(graph, k=self.k_hop)
 
         other_keys = [key for key in graph_data.keys() if key not in ['edge_index', 'num_nodes', 'x', 'y', 'edge_attr']]
         other_data = {key: graph_data[key] for key in other_keys}
