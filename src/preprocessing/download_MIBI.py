@@ -1,7 +1,7 @@
 import os
 
 
-data_dir = '/gpfs/gibbs/pi/krishnaswamy_smita/cl2482/MIBI/data/MIBI/raw/'
+data_dir = '../../data/MIBI/raw/'
 
 download_commands = [
     f'wget -O {data_dir}/cell_protein_data.csv https://data.mendeley.com/public-files/datasets/79y7bht7tf/files/2679faaa-53b9-40e1-8315-3e25ede010b7/file_downloaded',
@@ -11,5 +11,6 @@ download_commands = [
 
 
 if __name__ == '__main__':
+    os.makedirs(data_dir, exist_ok=True)
     for command in download_commands:
         os.system(command)

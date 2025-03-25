@@ -17,12 +17,18 @@ from scheduler import LinearWarmupCosineAnnealingLR
 
 sys.path.insert(0, import_dir + '/src/dataset/')
 from placenta import PlacentaDatasetHypergraph
+from mibi import MIBIDatasetHypergraph
+from extend import ExtendedDataset
+
 
 ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-2])
 
 
 def prepare_dataloaders(args):
-    dataset = PlacentaDatasetHypergraph(data_folder=args.data_folder)
+    if args.dataset == 'placenta':
+        dataset = PlacentaDatasetHypergraph(data_folder=args.data_folder)
+    elif args.dataset == 'mibi':
+        dataset = MIBIDatasetHypergraph(data_folder=args.data_folder)
 
     # Train/val/test split
     ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
@@ -32,6 +38,10 @@ def prepare_dataloaders(args):
         dataset=dataset,
         splits=ratios,
         random_seed=0)  # Fix the dataset.
+
+    min_batch_per_epoch = 10
+    desired_len = max(len(train_set), args.batch_size * min_batch_per_epoch)
+    train_set = ExtendedDataset(dataset=train_set, desired_len=desired_len)
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
@@ -162,6 +172,7 @@ if __name__ == "__main__":
     args.add_argument('--trainable-scales', action='store_true')
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
+    args.add_argument('--dataset', default='placenta', type=str)
     args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
     args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
 
@@ -202,8 +213,8 @@ if __name__ == "__main__":
     # Load the data.
     train_loader, val_loader, test_loader = prepare_dataloaders(args)
 
-    log_file = os.path.join(ROOT_DIR, 'results', f'log_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
+    log_file = os.path.join(ROOT_DIR, 'results', f'log_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
+    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Log the config.

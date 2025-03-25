@@ -16,23 +16,23 @@ from dhg import Graph, Hypergraph
 logging.getLogger('pysmiles').setLevel(logging.CRITICAL)
 
 
-class PlacentaDataset(Dataset):
+class MIBIDataset(Dataset):
     '''
-    Placenta Dataset.
-    Spatial RNA-seq data on placenta.
-    Data are given in matrices of matrices of [pixel coordinates, gene expression].
-    We have chopped up the data into small neighborhoods.
-    The purpose is to classify these neighborhoods into 3 classes:
-        - Normal
-        - Placenta Accreta Spectrum (PAS)
-        - Placental Insufficiency
+    MIBI Dataset.
+    Spatial RNA-seq data from MIBI.
+    Data are given in matrices of matrices of [cell, protein].
+    The purpose is to classify these neighborhoods into 4 classes:
+        - PD
+        - SD
+        - PR
+        - CR
 
     Returned `graph_data`: a torch_geometric.data.Data instance, where
                            graph_data.x is the node features.
     '''
 
     def __init__(self,
-                 data_folder: str = '../../data/spatial_placenta_accreta/patchified_all_genes/',
+                 data_folder: str = '../../data/MIBI/all_genes/',
                  transform=None):
 
         self._load_data(data_folder)
@@ -42,21 +42,24 @@ class PlacentaDataset(Dataset):
         graph_path_list = sorted(glob(data_folder + '*.h5ad'))
         class_list = []
         self.class_map = {
-            0: 'normal',
-            1: 'PAS',
-            2: 'insufficient',
+            0: 'PD',
+            1: 'SD',
+            2: 'PR',
+            3: 'CR',
         }
 
         for graph_path in graph_path_list:
             graph_str = os.path.basename(graph_path)
-            if 'normal' in graph_str:
+            if 'responseM_PD' in graph_str:
                 class_list.append(0)
-            elif 'PAS' in graph_str:
+            elif 'responseM_SD' in graph_str:
                 class_list.append(1)
-            elif 'insufficient' in graph_str:
+            elif 'responseM_PR' in graph_str:
                 class_list.append(2)
+            elif 'responseM_CR' in graph_str:
+                class_list.append(3)
             else:
-                raise ValueError(f'graph_str must contain `normal`, `PAS` or `insufficient`, but got {graph_str}.')
+                raise ValueError(f'`graph_str` must contain responseM_`PD`, `SD`, `PR` or `CR`, but got {graph_str}.')
 
         assert len(graph_path_list) == len(class_list)
 
@@ -77,16 +80,10 @@ class PlacentaDataset(Dataset):
             graph_data = self.transform(graph_data)
         return graph_data
 
-class PlacentaDatasetHypergraph(PlacentaDataset):
+class MIBIDatasetHypergraph(MIBIDataset):
     '''
-    Placenta Dataset in Hypergraph format.
-    Spatial RNA-seq data on placenta.
-    Data are given in matrices of matrices of [pixel coordinates, gene expression].
-    We have chopped up the data into small neighborhoods.
-    The purpose is to classify these neighborhoods into 3 classes:
-        - Normal
-        - Placenta Accreta Spectrum (PAS)
-        - Placental Insufficiency
+    MIBI Dataset in Hypergraph format.
+    Spatial RNA-seq data from MIBI.
 
     Returned `graph_data`: a torch_geometric.data.Data instance, where
                            graph_data.x is the node features.
@@ -146,7 +143,7 @@ def get_hyperedge_index(hypergraph):
     return hyperedge_index
 
 def return_graph_data(adata):
-    # Normalize the gene expression for each pixel.
+    # Normalize the gene expression for each cell.
     sc.pp.normalize_total(adata, target_sum=1e6)
     sc.pp.log1p(adata)
 
@@ -155,7 +152,7 @@ def return_graph_data(adata):
 
     # NetworkX to PyG.
     data = from_networkx(G)
-    data.x = torch.tensor(adata.X.todense(), dtype=torch.float)
+    data.x = torch.tensor(adata.X, dtype=torch.float)
     return data
 
 def create_knn_graph(adata, K: int = 10):
@@ -166,4 +163,4 @@ def create_knn_graph(adata, K: int = 10):
 
 
 if __name__ == '__main__':
-    dataset = PlacentaDataset()
+    dataset = MIBIDataset()
