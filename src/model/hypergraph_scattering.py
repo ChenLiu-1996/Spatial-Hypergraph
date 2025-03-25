@@ -193,11 +193,11 @@ class HyperScatteringModule(nn.Module):
             self.wavelet_constructor = torch.nn.Parameter(torch.from_numpy(wavelet_matrix).float(),
                                                           requires_grad=trainable_scales)
 
-        # self.norm_node = nn.BatchNorm1d(self.num_features)
-        self.activations = [F.silu]
         self.reshape = reshape
 
-    def forward(self, x: torch.Tensor, hyperedge_index: torch.Tensor,
+    def forward(self,
+                x: torch.Tensor,
+                hyperedge_index: torch.Tensor,
                 hyperedge_weight: Optional[torch.Tensor] = None,
                 hyperedge_attr: Optional[torch.Tensor] = None,
                 num_edges: Optional[int] = None):
@@ -213,23 +213,32 @@ class HyperScatteringModule(nn.Module):
         # Combine the diffusion levels into a single tensor.
         diffusion_levels = rearrange(node_features, 'i j k -> i j k').float()
         edge_diffusion_levels = rearrange(edge_features, 'i j k -> i j k').float()
-        wavelet_coeffs = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, diffusion_levels) # J x num_nodes x num_features x 1
-        wavelet_coeffs_edges = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, edge_diffusion_levels)
+        node_emb = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, diffusion_levels) # J x num_nodes x num_features x 1
+        edge_emb = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, edge_diffusion_levels)
+        node_emb = rearrange(node_emb, 'w n f -> n (w f)') if self.reshape else torch.stack(node_emb)
+        edge_emb = rearrange(edge_emb, 'w e f -> e (w f)') if self.reshape else torch.stack(edge_emb)
 
-        # TODO: think about normalization?
-        # wavelet_coeffs = self.norm_node(rearrange(wavelet_coeffs, 's b l -> (s b) l'))
-        # wavelet_coeffs = rearrange(wavelet_coeffs, '(s b) l -> s b l', s=len(self.wavelet_constructor))
-        activated = [self.activations[i](wavelet_coeffs) for i in range(len(self.activations))]
-        activated_edges = [self.activations[i](wavelet_coeffs_edges) for i in range(len(self.activations))]
-        s_nodes = rearrange(activated, 'a w n f -> n (w f a)') if self.reshape else torch.stack(activated)
-        s_edges = rearrange(activated_edges, 'a w e f -> e (w f a)') if self.reshape else torch.stack(activated_edges)
-
-        return s_nodes, s_edges
+        return node_emb, edge_emb
 
     def out_features(self):
         # return 6 * self.in_channels * len(self.activations)
         # NOTE: Is this correct?
         return self.num_features * len(self.wavelet_constructor)
+
+class ScatteringActivation(nn.Module):
+    def __init__(self, activation=F.silu):
+        super().__init__()
+        # self.norm_node = nn.BatchNorm1d(self.num_features)
+        self.activation = activation
+
+    def forward(self, node_emb: torch.Tensor, edge_emb: torch.Tensor) -> Tuple[torch.Tensor]:
+        # TODO: think about normalization?
+        # node_emb = self.norm_node(rearrange(node_emb, 's b l -> (s b) l'))
+        # node_emb = rearrange(node_emb, '(s b) l -> s b l', s=len(self.wavelet_constructor))
+        node_emb = self.activation(node_emb)
+        edge_emb = self.activate(edge_emb)
+        return node_emb, edge_emb
+
 
 class HypergraphScatteringNet(nn.Module):
     '''
@@ -292,18 +301,21 @@ class HypergraphScatteringNet(nn.Module):
         if pooling == 'attention':
             raise NotImplementedError
 
-        for layout_ in layout:
-            if layout_ == 'hsm':
-                self.layers.append(HyperScatteringModule(
+        for layout_name in layout:
+            if layout_name == 'hsm':
+                scattering_layer = HyperScatteringModule(
                     self.out_dimensions[-1],
                     num_features=num_features,
                     trainable_laziness=trainable_laziness,
                     trainable_scales=self.trainable_scales,
                     fixed_weights=self.fixed_weights,
                     normalize=normalize,
-                    scale_list=self.scale_list))
-                self.out_dimensions.append(self.layers[-1].out_features())
-            elif layout_ == 'dim_reduction':
+                    scale_list=self.scale_list)
+                self.layers.append(scattering_layer)
+                self.out_dimensions.append(scattering_layer.out_features())
+            elif layout_name == 'act':
+                self.layers.append(ScatteringActivation())
+            elif layout_name == 'dim_reduction':
                 input_dim = self.out_dimensions[-1]
                 output_dim = input_dim // 2
                 self.out_dimensions.append(output_dim)
@@ -325,7 +337,9 @@ class HypergraphScatteringNet(nn.Module):
         )
 
 
-    def forward(self, x: torch.Tensor, hyperedge_index: torch.Tensor,
+    def forward(self,
+                x: torch.Tensor,
+                hyperedge_index: torch.Tensor,
                 hyperedge_weight: Optional[torch.Tensor] = None,
                 hyperedge_attr: Optional[torch.Tensor] = None,
                 num_edges: Optional[int] = None,
@@ -352,14 +366,17 @@ class HypergraphScatteringNet(nn.Module):
         # edge_batch = batch[row]
         curr_value = 0
         node_in_hyperedge = []
-        for ind,val in enumerate(hyperedge_index[1,:]):
+        for edge_idx, val in enumerate(hyperedge_index[1, :]):
             if val == curr_value:
-                node_in_hyperedge.append(hyperedge_index[0, ind])
+                node_in_hyperedge.append(hyperedge_index[0, edge_idx])
                 curr_value += 1
         edge_batch = torch.tensor(node_in_hyperedge, device = hyperedge_index.device)
         for i, layer in enumerate(self.layers):
             if self.layout[i] == 'hsm':
                 x, hyperedge_attr = layer(x, hyperedge_index, hyperedge_weight, hyperedge_attr, num_edges)
+                # TODO add batch norm before non-linearity inside the hsm!
+            elif self.layout[i] == 'act':
+                x, hyperedge_attr = layer(x, hyperedge_attr)
                 # TODO add batch norm before non-linearity inside the hsm!
             elif self.layout[i] == 'dim_reduction':
                 x = layer(x) # TODO add batch norm and non-linearity!

@@ -46,6 +46,7 @@ class PlacentaDataset(Dataset):
             1: 'PAS',
             2: 'insufficient',
         }
+        self.num_classes = 3
 
         for graph_path in graph_path_list:
             graph_str = os.path.basename(graph_path)

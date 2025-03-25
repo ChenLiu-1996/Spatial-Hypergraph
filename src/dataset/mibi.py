@@ -47,6 +47,7 @@ class MIBIDataset(Dataset):
             2: 'PR',
             3: 'CR',
         }
+        self.num_classes = 4
 
         for graph_path in graph_path_list:
             graph_str = os.path.basename(graph_path)

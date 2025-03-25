@@ -46,7 +46,7 @@ def prepare_dataloaders(args):
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, dataset
 
 def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
     train_loss = 0
@@ -184,10 +184,13 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Load the data.
+    train_loader, val_loader, test_loader, dataset = prepare_dataloaders(args)
+
     model = HypergraphScatteringNet(
         in_channels=64,
         hidden_channels=16,
-        out_channels=3,
+        out_channels=dataset.num_classes,
         num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
@@ -209,9 +212,6 @@ if __name__ == "__main__":
         warmup_start_lr=args.learning_rate * 1e-2,
         max_epochs=args.max_epochs)
     loss_fn = torch.nn.CrossEntropyLoss()
-
-    # Load the data.
-    train_loader, val_loader, test_loader = prepare_dataloaders(args)
 
     log_file = os.path.join(ROOT_DIR, 'results', f'log_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
     model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset_{args.dataset}-features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
