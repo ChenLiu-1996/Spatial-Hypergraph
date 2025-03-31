@@ -2,25 +2,27 @@
 
 ## Reproducing the results
 1. Preprocess the data
-Yang-Hartwich data.
 
-1.1 If using all the genes.
+1.1 Yang-Hartwich data.
+
+1.1.1 If using all the genes.
 ```
 cd src/preprocessing
 python preprocess_placenta_all_genes.py
 ```
 
-1.2 If using a selected subset of genes of interest.
+1.1.2 If using a selected subset of genes of interest.
 ```
 cd src/preprocessing
 python preprocess_placenta_selected_genes.py
 ```
 
-MIBI data.
+1.2 MIBI data.
+
+1.2.1 If using all genes.
 ```
 cd src/preprocessing
-python download_MIBI.py
-python preprocess_MIBI.py
+python preprocess_MIBI_all_genes.py
 ```
 
 2. Train the hypergraph wavelet model.
