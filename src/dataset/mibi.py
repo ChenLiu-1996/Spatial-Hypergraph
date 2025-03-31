@@ -32,7 +32,7 @@ class MIBIDataset(Dataset):
     '''
 
     def __init__(self,
-                 data_folder: str = '../../data/MIBI/all_genes/',
+                 data_folder: str = '../../data/MIBI/all_genes',
                  k_hop: int = 3,
                  transform=None):
 
@@ -41,7 +41,7 @@ class MIBIDataset(Dataset):
         self.transform = transform
 
     def _load_data(self, data_folder: str) -> None:
-        graph_path_list = sorted(glob(data_folder + '*.h5ad'))
+        graph_path_list = sorted(glob(os.path.join(data_folder, '*.h5ad')))
         class_list = []
         self.class_map = {
             0: 'PD',

@@ -48,11 +48,11 @@ if __name__ == '__main__':
         matrix = matrix.reset_index(drop=True)
         variable_df = pd.DataFrame({'Gene Expression': features})
         variable_df.index = features
-        sub_adata = ad.AnnData(X=matrix, obs=pd.DataFrame({'Location': np.arange(len(matrix))}), var=variable_df)
+        adata = ad.AnnData(X=matrix, obs=pd.DataFrame({'Location': np.arange(len(matrix))}), var=variable_df)
         coords = np.concatenate((barcodes['X'].values[:, None], barcodes['Y'].values[:, None]), axis=1)
-        sub_adata.obsm['spatial'] = coords
+        adata.obsm['spatial'] = coords
 
         label_binary = patient_labels.loc[patient_labels.id == patient_id]['response_binary'].values.item()
         label_multi = patient_labels.loc[patient_labels.id == patient_id]['response_multi'].values.item()
         os.makedirs(folder_out, exist_ok=True)
-        sub_adata.write(os.path.join(folder_out, f'patient_{patient_id}-responseB_{label_binary}-responseM_{label_multi}_spatial_matrix.h5ad'))
+        adata.write(os.path.join(folder_out, f'patient_{patient_id}-responseB_{label_binary}-responseM_{label_multi}_spatial_matrix.h5ad'))

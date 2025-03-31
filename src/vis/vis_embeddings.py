@@ -167,7 +167,8 @@ if __name__ == "__main__":
     model.eval()
     model.to(device)
 
-    current_run_identifier = f'dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
+    subset_name = os.path.basename(args.data_folder.rstrip('/'))
+    current_run_identifier = f'dataset-{args.dataset}-{subset_name}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
     model_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'model.pt')
     embedding_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'embeddings.npz')
     os.makedirs(os.path.dirname(embedding_save_path), exist_ok=True)

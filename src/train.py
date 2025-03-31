@@ -40,8 +40,9 @@ def prepare_dataloaders(args):
         random_seed=0)  # Fix the dataset.
 
     min_batch_per_epoch = 5
-    desired_len = max(len(train_set), args.batch_size * min_batch_per_epoch)
-    train_set = ExtendedDataset(dataset=train_set, desired_len=desired_len)
+    desired_len = args.batch_size * min_batch_per_epoch
+    if len(dataset) < desired_len:
+        train_set = ExtendedDataset(dataset=train_set, desired_len=desired_len)
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
@@ -173,7 +174,7 @@ if __name__ == "__main__":
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)
-    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
+    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_all_genes', type=str)
     args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
@@ -213,7 +214,8 @@ if __name__ == "__main__":
         max_epochs=args.max_epochs)
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    current_run_identifier = f'dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
+    subset_name = os.path.basename(args.data_folder.rstrip('/'))
+    current_run_identifier = f'dataset-{args.dataset}-{subset_name}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
     log_file = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'log.txt')
     model_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'model.pt')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
