@@ -14,25 +14,21 @@ MIN_PIXEL_PER_GRAPH = 20
 
 if __name__ == '__main__':
     '''
-    We have 3 csv files that covers 54 patients.
-    1. `cell_protein_data.csv` records the cell-by-protein matrices.
-    2. `cell_spatial_data.csv` records the (x, y, area) for each cell.
-    3. `patient_info.csv` records the class labels for the patients.
+    We have 2 csv files that covers 54 patients.
+    1. `cell_protein_data.csv` records the cell-by-protein matrices and (x, y, area) for each cell.
+    2. `patient_info.csv` records the class labels for the patients.
     '''
     cell_by_protein = pd.read_csv(os.path.join(folder_in, 'cell_protein_data.csv'))
-    cell_spatial_info = pd.read_csv(os.path.join(folder_in, 'cell_spatial_data.csv'))
     patient_labels = pd.read_csv(os.path.join(folder_in, 'patient_info.csv'))
 
-    assert len(cell_by_protein) == len(cell_spatial_info)
-
     for patient_id in tqdm(patient_labels.id):
-        assert patient_id in cell_spatial_info.id.values, 'Patient ID mismatch.'
+        assert patient_id in cell_by_protein.id.values, 'Patient ID mismatch.'
 
         # Construct `barcodes`.
-        cell_info = cell_spatial_info.copy()
+        cell_info = cell_by_protein.copy()
         cell_info = cell_info.loc[cell_info.id == patient_id]
         cell_info = cell_info.drop(['area'], axis=1)
-        barcodes = 'patient_' + cell_info.id + '-cell_' + cell_info['cell_instance'].apply(lambda x: str(x).zfill(4))
+        barcodes = 'patient_' + cell_info.id + '-cell_' + cell_info['label'].apply(lambda x: str(x).zfill(4))
         barcodes = pd.DataFrame(barcodes, columns=['barcode'])
         barcodes['X'] = cell_info['x_centroid'].astype(int)
         barcodes['Y'] = cell_info['y_centroid'].astype(int)
@@ -40,12 +36,13 @@ if __name__ == '__main__':
 
         # Construct `features`.
         features = cell_by_protein.columns.values.tolist()
-        features.remove('id')
+        for key in ['id', 'unique_id', 'label', 'area', 'x_centroid', 'y_centroid']:
+            features.remove(key)
 
         # Construct `matrix`.
         matrix = cell_by_protein.copy()
         matrix = matrix.loc[matrix['id'] == patient_id]
-        matrix = matrix.drop(['id'], axis=1)
+        matrix = matrix.drop(['id', 'unique_id', 'label', 'area', 'x_centroid', 'y_centroid'], axis=1)
 
         barcodes = barcodes.reset_index(drop=True)
         matrix = matrix.reset_index(drop=True)
