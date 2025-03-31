@@ -75,7 +75,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_samp
         embedding_arr, label_arr = embedding_label_pair
 
         # Subsample the hyperedges, otherwise it gives OOM.
-        if file_name == 'hyperedge_embeddings.png' and hyperedge_sampling_rate is not None:
+        if file_name == 'hyperedge_embeddings.png' and len(embedding_arr) > 1e6 and hyperedge_sampling_rate is not None:
             sampled_indices = np.random.choice(len(embedding_arr), size=int(hyperedge_sampling_rate * len(embedding_arr)))
             embedding_arr = embedding_arr[sampled_indices, :]
             label_arr = label_arr[sampled_indices, :]
@@ -132,8 +132,10 @@ if __name__ == "__main__":
     args.add_argument('--train-val-test-ratio', default='6:2:2', type=str)
     args.add_argument('--batch-size', default=1, type=int)
     args.add_argument('--trainable-scales', action='store_true')
+    args.add_argument('--k-hop', default=1, type=int)
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
+    args.add_argument('--dataset', default='placenta', type=str)
     args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
     args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
 
@@ -145,10 +147,13 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Load the data.
+    train_loader, val_loader, test_loader, dataset = prepare_dataloaders(args)
+
     model = HypergraphScatteringNet(
         in_channels=64,
         hidden_channels=16,
-        out_channels=3,
+        out_channels=dataset.num_classes,
         num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
@@ -162,11 +167,8 @@ if __name__ == "__main__":
     model.eval()
     model.to(device)
 
-    # Load the data.
-    train_loader, val_loader, test_loader = prepare_dataloaders(args)
-
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
-    embedding_save_path = os.path.join(ROOT_DIR, 'results', 'embeddings', f'model_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}', 'embeddings.npz')
+    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
+    embedding_save_path = os.path.join(ROOT_DIR, 'results', 'embeddings', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}', 'embeddings.npz')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
     os.makedirs(os.path.dirname(embedding_save_path), exist_ok=True)
 

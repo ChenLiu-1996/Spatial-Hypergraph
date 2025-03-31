@@ -39,7 +39,7 @@ def prepare_dataloaders(args):
         splits=ratios,
         random_seed=0)  # Fix the dataset.
 
-    min_batch_per_epoch = 10
+    min_batch_per_epoch = 5
     desired_len = max(len(train_set), args.batch_size * min_batch_per_epoch)
     train_set = ExtendedDataset(dataset=train_set, desired_len=desired_len)
 
@@ -71,14 +71,6 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
         loss_ = loss / batch_per_backprop
         loss_.backward()
 
-        # except RuntimeError as e:
-        #     if "out of memory" in str(e).lower():
-        #         print("OOM detected. Skipping batch...")
-        #         torch.cuda.empty_cache()
-        #         continue
-        #     else:
-        #         raise RuntimeError(e)
-
         train_loss += loss.mean().item()
 
         # Simulate bigger batch size by batched optimizer update.
@@ -86,15 +78,17 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
             optimizer.step()
             optimizer.zero_grad()
 
+        y_true_np = y_true.detach().cpu().numpy()                        # shape: (batch size, 1)
+        y_pred_np = torch.softmax(y_pred, dim=1).detach().cpu().numpy()  # shape: (batch size, num classes)
         if y_true_arr is None:
-            y_true_arr = y_true.detach().cpu().numpy()
-            y_pred_arr = y_pred.detach().cpu().numpy()
+            y_true_arr = y_true_np
+            y_pred_arr = y_pred_np
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
-            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true_np))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred_np))
 
     train_loss /= min(max_iter, len(train_loader))
-    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
     auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
     return model, train_loss, accuracy, auroc
 
@@ -118,15 +112,17 @@ def val_epoch(model, val_loader, loss_fn, device, max_iter):
 
         val_loss += loss.mean().item()
 
+        y_true_np = y_true.detach().cpu().numpy()                        # shape: (batch size, 1)
+        y_pred_np = torch.softmax(y_pred, dim=1).detach().cpu().numpy()  # shape: (batch size, num classes)
         if y_true_arr is None:
-            y_true_arr = y_true.detach().cpu().numpy()
-            y_pred_arr = y_pred.detach().cpu().numpy()
+            y_true_arr = y_true_np
+            y_pred_arr = y_pred_np
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
-            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true_np))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred_np))
 
     val_loss /= min(max_iter, len(val_loader))
-    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
     auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
     return model, val_loss, accuracy, auroc
 
@@ -147,15 +143,18 @@ def test_model(model, test_loader, loss_fn, device):
 
         test_loss += loss.mean().item()
 
+
+        y_true_np = y_true.detach().cpu().numpy()                        # shape: (batch size, 1)
+        y_pred_np = torch.softmax(y_pred, dim=1).detach().cpu().numpy()  # shape: (batch size, num classes)
         if y_true_arr is None:
-            y_true_arr = y_true.detach().cpu().numpy()
-            y_pred_arr = y_pred.detach().cpu().numpy()
+            y_true_arr = y_true_np
+            y_pred_arr = y_pred_np
         else:
-            y_true_arr = np.hstack((y_true_arr, y_true.detach().cpu().numpy()))
-            y_pred_arr = np.vstack((y_pred_arr, y_pred.detach().cpu().numpy()))
+            y_true_arr = np.hstack((y_true_arr, y_true_np))
+            y_pred_arr = np.vstack((y_pred_arr, y_pred_np))
 
     test_loss /= len(test_loader)
-    accuracy = accuracy_score(y_true_arr, y_pred_arr.argmax(axis=1))
+    accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
     auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro')
     return model, test_loss, accuracy, auroc
 
@@ -170,7 +169,7 @@ if __name__ == "__main__":
     args.add_argument('--desired-batch-size', default=16, type=int)
     args.add_argument('--learning-rate', default=1e-3, type=float)
     args.add_argument('--trainable-scales', action='store_true')
-    args.add_argument('--k-hop', default=3, type=int)
+    args.add_argument('--k-hop', default=1, type=int)
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)

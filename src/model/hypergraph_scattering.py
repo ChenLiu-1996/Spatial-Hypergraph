@@ -221,7 +221,6 @@ class HyperScatteringModule(nn.Module):
         return node_emb, edge_emb
 
     def out_features(self):
-        # return 6 * self.in_channels * len(self.activations)
         # NOTE: Is this correct?
         return self.num_features * len(self.wavelet_constructor)
 
@@ -255,21 +254,8 @@ class HypergraphScatteringNet(nn.Module):
         layout (list): List of strings specifying the layout of the network.
         normalize (str): Normalization method to use.
         pooling (str): Pooling method to use.
+        classifier (str): Attention or MLP.
         **kwargs: Additional keyword arguments.
-
-    Attributes:
-        in_channels (int): Number of input channels.
-        out_channels (int): Number of output channels.
-        hidden_channels (int): Number of hidden channels.
-        trainable_laziness (bool): Whether the laziness parameter is trainable.
-        trainable_scales (bool): Whether the scales parameter is trainable.
-        fixed_weights (bool): Whether the weights are fixed.
-        layout (list): List of strings specifying the layout of the network.
-        layers (nn.ModuleList): List of network layers.
-        out_dimensions (list): List of output dimensions.
-        normalize (str): Normalization method to use.
-        pooling (str): Pooling method to use.
-
     '''
 
     def __init__(self,
@@ -282,7 +268,7 @@ class HypergraphScatteringNet(nn.Module):
                  fixed_weights=True,
                  layout=['hsm', 'hsm'],
                  normalize="right",
-                 pooling=None,
+                 pooling='mean',
                  **kwargs):
         super().__init__()
         self.in_channels = in_channels
@@ -325,17 +311,24 @@ class HypergraphScatteringNet(nn.Module):
 
         self.layers = nn.ModuleList(self.layers)
 
-        hidden_layers = int((self.out_dimensions[-1] * self.out_channels) ** 0.5)
-        self.fc1 = nn.Linear(self.out_dimensions[-1], hidden_layers)
-        self.fc2 = nn.Linear(hidden_layers, self.out_channels)
-        self.act = nn.ELU()
-
         self.mlp = nn.Sequential(
-            self.fc1,
-            self.act,
-            self.fc2
+            nn.Linear(self.out_dimensions[-1], self.out_dimensions[-1]),
+            nn.ELU(),
+            nn.Linear(self.out_dimensions[-1], self.out_channels),
+            nn.ELU(),
+            nn.Linear(self.out_channels, self.out_channels),
         )
 
+    def interpret_feature_importance(self):
+        '''
+        Aggregate the MLP weights to interpret feature importance.
+        '''
+        linear_layers = [m for m in self.mlp.modules() if isinstance(m, nn.Linear)]
+        W = linear_layers[-1].weight
+        for layer in linear_layers[:-1][::-1]:
+            W = W @ layer.weight  # Chain multiplication
+        # NOTE: The order of weights are: [(scale 1, feature 1), (scale 1, feature 2), ... (scale 2, feature 1), ...].
+        return W.squeeze()  # [wavelet scales * num features]
 
     def forward(self,
                 x: torch.Tensor,
@@ -400,12 +393,26 @@ class HypergraphScatteringNet(nn.Module):
         elif self.pooling == 'sum':
             x = global_add_pool(x, batch)
             hyperedge_attr = global_add_pool(hyperedge_attr, batch)
-        elif self.pooling == 'attention':
-            # use a hyper GNN to learn attention weights?? I don't know...
-            raise NotImplementedError
 
         x = self.mlp(x)
-        x = F.softmax(x, dim=1)
+        # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
 
         return x
 
+
+if __name__ == '__main__':
+    model = HypergraphScatteringNet(
+        in_channels=64,
+        hidden_channels=16,
+        out_channels=1,
+        num_features=10,
+        trainable_laziness=False,
+        trainable_scales=True,
+        activation=None,  # just get one layer of wavelet transform
+        fixed_weights=True,
+        layout=['hsm'],
+        normalize='right',
+        pooling='linear_combination',
+        scale_list=[0,1,2,4]
+    )
+    model.interpret_feature_importance()
