@@ -167,9 +167,9 @@ if __name__ == "__main__":
     model.eval()
     model.to(device)
 
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
-    embedding_save_path = os.path.join(ROOT_DIR, 'results', 'embeddings', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}', 'embeddings.npz')
-    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+    current_run_identifier = f'dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
+    model_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'model.pt')
+    embedding_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'embeddings.npz')
     os.makedirs(os.path.dirname(embedding_save_path), exist_ok=True)
 
     model.eval()

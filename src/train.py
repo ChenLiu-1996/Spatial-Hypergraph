@@ -213,8 +213,9 @@ if __name__ == "__main__":
         max_epochs=args.max_epochs)
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    log_file = os.path.join(ROOT_DIR, 'results', f'log_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.txt')
-    model_save_path = os.path.join(ROOT_DIR, 'results', f'model_dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}.pt')
+    current_run_identifier = f'dataset-{args.dataset}_kHop-{args.k_hop}_features-{args.num_features}_trainable_scales-{args.trainable_scales}_seed-{args.random_seed}'
+    log_file = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'log.txt')
+    model_save_path = os.path.join(ROOT_DIR, 'results', args.dataset, current_run_identifier, 'model.pt')
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     # Log the config.
