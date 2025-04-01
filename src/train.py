@@ -247,7 +247,7 @@ if __name__ == "__main__":
             log('Model weights successfully saved.', filepath=log_file)
 
     model.eval()
-    model.load_state_dict(torch.load(model_save_path, map_location=device))
+    model.load_state_dict(torch.load(model_save_path, map_location=device, weights_only=True))
     model, loss, accuracy, auroc = test_model(model, test_loader, loss_fn, device)
     log(f'\n\nTest Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
         filepath=log_file)

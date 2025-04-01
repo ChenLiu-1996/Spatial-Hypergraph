@@ -75,19 +75,25 @@ if __name__ == '__main__':
                     matrix['y_centroid'] < y_end,
                 ])
 
+                sub_barcodes = barcodes.loc[subsample_indices]
+                sub_matrix = matrix.loc[subsample_indices]
+
+                sub_matrix = sub_matrix.drop(['x_centroid', 'y_centroid'], axis=1)
+
+                # NOTE: Filter underexpressed cells. Not filtering unexpressed genes because they may vary across subjects.
+                # Remove cells where zero gene is expressed.
+                barcode_position_valid = np.array(sub_matrix.sum(axis=1) > 0).reshape(-1)
+                sub_barcodes = sub_barcodes[barcode_position_valid]
+                sub_matrix = sub_matrix[barcode_position_valid]
+
+                sub_barcodes = sub_barcodes.reset_index(drop=True)
+                sub_matrix = sub_matrix.reset_index(drop=True)
+
                 # Check if bin has sufficient number of cells.
-                num_cells = subsample_indices.sum()
+                num_cells = len(sub_matrix)
                 if num_cells < MIN_CELL_PER_GRAPH:
                     print(f'Subgraph (x={x_start}~{x_end}, y={y_start}~{y_end}) has fewer than {MIN_CELL_PER_GRAPH} pixels ({num_cells}). Skipping this bin.')
                 else:
-                    sub_barcodes = barcodes.loc[subsample_indices]
-                    sub_matrix = matrix.loc[subsample_indices]
-
-                    sub_matrix = sub_matrix.drop(['x_centroid', 'y_centroid'], axis=1)
-
-                    sub_barcodes = sub_barcodes.reset_index(drop=True)
-                    sub_matrix = sub_matrix.reset_index(drop=True)
-
                     sub_adata = ad.AnnData(X=sub_matrix, obs=pd.DataFrame({'Location': np.arange(len(sub_matrix))}), var=variable_df)
                     coords = np.concatenate((sub_barcodes['X'].values[:, None], sub_barcodes['Y'].values[:, None]), axis=1)
                     sub_adata.obsm['spatial'] = coords
