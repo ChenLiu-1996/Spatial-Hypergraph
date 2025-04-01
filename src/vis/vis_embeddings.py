@@ -130,7 +130,6 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_samp
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Entry point.')
     args.add_argument('--train-val-test-ratio', default='6:2:2', type=str)
-    args.add_argument('--batch-size', default=1, type=int)
     args.add_argument('--trainable-scales', action='store_true')
     args.add_argument('--k-hop', default=1, type=int)
     args.add_argument('--num-workers', default=8, type=int)
@@ -140,6 +139,7 @@ if __name__ == "__main__":
     args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
+    args.batch_size = 1
     seed_everything(args.random_seed)
 
     # Update paths with absolute path.

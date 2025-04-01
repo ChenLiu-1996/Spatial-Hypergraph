@@ -232,12 +232,32 @@ class ScatteringActivation(nn.Module):
 
     def forward(self, node_emb: torch.Tensor, edge_emb: torch.Tensor) -> Tuple[torch.Tensor]:
         # TODO: think about normalization?
-        # node_emb = self.norm_node(rearrange(node_emb, 's b l -> (s b) l'))
-        # node_emb = rearrange(node_emb, '(s b) l -> s b l', s=len(self.wavelet_constructor))
+        # node_emb = self.norm_node(rearrange(node_emb, 's b l -> (w b) l'))
+        # node_emb = rearrange(node_emb, '(w b) l -> s b l', s=len(self.wavelet_constructor))
         node_emb = self.activation(node_emb)
         edge_emb = self.activate(edge_emb)
         return node_emb, edge_emb
 
+class FeatureSelfAttention(nn.Module):
+    def __init__(self, embed_dim=64, num_heads=4):
+        super().__init__()
+        self.input_proj = nn.Linear(1, embed_dim)
+        self.attn = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.output_proj = nn.Linear(embed_dim, 1)
+
+    def forward(self, x, return_attn: bool = False):
+        '''
+        The shape of x is [B, L]: (batch size, num features).
+        '''
+        x = x.unsqueeze(-1)                   # [B, L, 1]
+        x = self.input_proj(x)                # [B, L, embed_dim]
+        # Apply self-attention across the feature dimension (L positions)
+        x, attn_weights = self.attn(x, x, x)  # [B, L, embed_dim]
+        x = self.output_proj(x)               # [B, L, 1]
+        x = x.squeeze(-1)                     # [B, L]
+        if return_attn:
+            return x, attn_weights
+        return x
 
 class HypergraphScatteringNet(nn.Module):
     '''
@@ -311,24 +331,22 @@ class HypergraphScatteringNet(nn.Module):
 
         self.layers = nn.ModuleList(self.layers)
 
-        self.mlp = nn.Sequential(
-            nn.Linear(self.out_dimensions[-1], self.out_dimensions[-1]),
-            nn.ELU(),
-            nn.Linear(self.out_dimensions[-1], self.out_channels),
-            nn.ELU(),
-            nn.Linear(self.out_channels, self.out_channels),
-        )
+        # Self-attention among features to help identify feature importance.
+        self.attention = FeatureSelfAttention(embed_dim=64, num_heads=4)
 
-    def interpret_feature_importance(self):
-        '''
-        Aggregate the MLP weights to interpret feature importance.
-        '''
-        linear_layers = [m for m in self.mlp.modules() if isinstance(m, nn.Linear)]
-        W = linear_layers[-1].weight
-        for layer in linear_layers[:-1][::-1]:
-            W = W @ layer.weight  # Chain multiplication
-        # NOTE: The order of weights are: [(scale 1, feature 1), (scale 1, feature 2), ... (scale 2, feature 1), ...].
-        return W.squeeze()  # [wavelet scales * num features]
+        # Final classifier.
+        self.classifier = torch.nn.Linear(self.out_dimensions[-1], self.out_channels)
+
+    # def interpret_feature_importance(self):
+    #     '''
+    #     Aggregate the MLP weights to interpret feature importance.
+    #     '''
+    #     linear_layers = [m for m in self.mlp.modules() if isinstance(m, nn.Linear)]
+    #     W = linear_layers[-1].weight
+    #     for layer in linear_layers[:-1][::-1]:
+    #         W = W @ layer.weight  # Chain multiplication
+    #     # NOTE: The order of weights are: [(scale 1, feature 1), (scale 1, feature 2), ... (scale 2, feature 1), ...].
+    #     return W.squeeze()  # [wavelet scales * num features]
 
     def forward(self,
                 x: torch.Tensor,
@@ -394,7 +412,8 @@ class HypergraphScatteringNet(nn.Module):
             x = global_add_pool(x, batch)
             hyperedge_attr = global_add_pool(hyperedge_attr, batch)
 
-        x = self.mlp(x)
+        x = self.attention(x)
+        x = self.classifier(x)
         # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
 
         return x
