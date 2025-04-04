@@ -22,8 +22,8 @@ ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 
 @torch.no_grad()
 def save_test_set_embeddings(model, test_loader, device, embedding_save_path):
-    hyperedge_emb_arr, hyperedge_label_arr = None, None
-    hypergraph_emb_arr, hypergraph_label_arr = None, None
+    hyperedge_emb_arr, hyperedge_label_arr, hyperedge_gene_expression_arr = None, None, None
+    hypergraph_emb_arr, hypergraph_label_arr, hypergraph_gene_expression_arr = None, None, None
 
     for data_item in tqdm(test_loader):
         data_item = data_item.to(device)
@@ -38,47 +38,57 @@ def save_test_set_embeddings(model, test_loader, device, embedding_save_path):
         hyperedge_emb = embedding.cpu().detach().numpy()
         # `hyperedge_emb.shape[0]` is number of hyperedges. Repeat the label for each hyperedge.
         hyperedge_label = y_true.cpu().detach().numpy().reshape(-1, 1).repeat(hyperedge_emb.shape[0], axis=0)
+        hyperedge_gene_expression = data_item.x.cpu().detach().numpy()
         hypergraph_emb = embedding.cpu().detach().numpy().mean(axis=0, keepdims=True)
         hypergraph_label = y_true.cpu().detach().numpy().reshape(-1, 1)
+        hypergraph_gene_expression = data_item.x.cpu().detach().numpy().mean(axis=0, keepdims=True)
 
         if hypergraph_emb_arr is None:
             hyperedge_emb_arr = hyperedge_emb
             hyperedge_label_arr = hyperedge_label
+            hyperedge_gene_expression_arr = hyperedge_gene_expression
             hypergraph_emb_arr = hypergraph_emb
             hypergraph_label_arr = hypergraph_label
+            hypergraph_gene_expression_arr = hypergraph_gene_expression
         else:
             hyperedge_emb_arr = np.concatenate((hyperedge_emb_arr, hyperedge_emb), axis=0)
             hyperedge_label_arr = np.concatenate((hyperedge_label_arr, hyperedge_label), axis=0)
+            hyperedge_gene_expression_arr = np.concatenate((hyperedge_gene_expression_arr, hyperedge_gene_expression), axis=0)
             hypergraph_emb_arr = np.concatenate((hypergraph_emb_arr, hypergraph_emb), axis=0)
             hypergraph_label_arr = np.concatenate((hypergraph_label_arr, hypergraph_label), axis=0)
+            hypergraph_gene_expression_arr = np.concatenate((hypergraph_gene_expression_arr, hypergraph_gene_expression), axis=0)
 
     with open(embedding_save_path, 'wb+') as f:
         np.savez(f,
-                 hyperedge_emb_arr=hyperedge_emb_arr, hyperedge_label_arr=hyperedge_label_arr,
-                 hypergraph_emb_arr=hypergraph_emb_arr, hypergraph_label_arr=hypergraph_label_arr)
+                 hyperedge_emb_arr=hyperedge_emb_arr, hyperedge_label_arr=hyperedge_label_arr, hyperedge_gene_expression_arr=hyperedge_gene_expression_arr,
+                 hypergraph_emb_arr=hypergraph_emb_arr, hypergraph_label_arr=hypergraph_label_arr, hypergraph_gene_expression_arr=hypergraph_gene_expression_arr)
     return
 
-def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_sampling_rate: float = 0.1):
+def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyperedge_sampling_rate: float = 0.1):
     with open(embedding_save_path, 'rb') as f:
         npzfile = np.load(f)
         hyperedge_emb_arr = npzfile['hyperedge_emb_arr']
         hyperedge_label_arr = npzfile['hyperedge_label_arr']
+        hyperedge_gene_expression_arr = npzfile['hyperedge_gene_expression_arr']
         hypergraph_emb_arr = npzfile['hypergraph_emb_arr']
         hypergraph_label_arr = npzfile['hypergraph_label_arr']
+        hypergraph_gene_expression_arr = npzfile['hypergraph_gene_expression_arr']
 
     # NOTE: Plot visualization where each node is a hypergraph (figure 1) or a hyperedge (figure 2).
-    for fig_title, file_name, embedding_label_pair in \
-        zip(['Each node is a hypergraph.', 'Each node is a hyperedge.'],
-            ['hypergraph_embeddings.png', 'hyperedge_embeddings.png'],
-            [(hypergraph_emb_arr, hypergraph_label_arr), (hyperedge_emb_arr, hyperedge_label_arr)]):
+    for entity_name, fig_title, embedding_label_expression in \
+        zip(['hypergraph', 'hyperedge'],
+            ['Each node is a hypergraph.', 'Each node is a hyperedge.'],
+            [(hypergraph_emb_arr, hypergraph_label_arr, hypergraph_gene_expression_arr),
+             (hyperedge_emb_arr, hyperedge_label_arr, hyperedge_gene_expression_arr)]):
 
-        embedding_arr, label_arr = embedding_label_pair
+        embedding_arr, label_arr, gene_expression_arr = embedding_label_expression
 
         # Subsample the hyperedges, otherwise it gives OOM.
-        if file_name == 'hyperedge_embeddings.png' and len(embedding_arr) > 1e6 and hyperedge_sampling_rate is not None:
+        if entity_name == 'hyperedge' and len(embedding_arr) > 1e6 and hyperedge_sampling_rate is not None:
             sampled_indices = np.random.choice(len(embedding_arr), size=int(hyperedge_sampling_rate * len(embedding_arr)))
             embedding_arr = embedding_arr[sampled_indices, :]
             label_arr = label_arr[sampled_indices, :]
+            gene_expression_arr = gene_expression_arr[sampled_indices, :]
 
         phate_op = phate.PHATE(random_state=args.random_seed, n_jobs=args.num_workers, verbose=True)
         data_phate = phate_op.fit_transform(normalize(embedding_arr, axis=1))
@@ -101,7 +111,7 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_samp
                 alpha=0.5)
         fig.suptitle(fig_title, fontsize=20)
         fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), file_name))
+        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_embeddings.png'))
 
         meld_op = meld.MELD(random_state=args.random_seed, n_jobs=args.num_workers, verbose=True)
         sample_densities = meld_op.fit_transform(normalize(embedding_arr, axis=1), sample_labels=label_arr)
@@ -122,8 +132,39 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, hyperedge_samp
                 s=5,
                 alpha=0.5)
         fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), file_name))
+        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_embeddings.png'))
         plt.close(fig)
+
+        fig = plt.figure(figsize=(24, 24))
+        # Assuming total of 64 genes.
+        for gene_idx, gene_identifier in enumerate(gene_list):
+            gene_name = gene_identifier.split('_')[1]
+
+            gene_expression = gene_expression_arr[:, gene_idx][:, None]
+            # meld_op = meld.MELD(random_state=args.random_seed, n_jobs=args.num_workers, verbose=True)
+            # sample_densities = meld_op.fit_transform(normalize(embedding_arr, axis=1), sample_labels=label_arr)
+            # sample_likelihoods = meld.utils.normalize_densities(sample_densities)
+
+            ax = fig.add_subplot(8, 8, gene_idx + 1)
+            scprep.plot.scatter2d(
+                data_phate,
+                c=gene_expression,
+                cmap='coolwarm',
+                ax=ax,
+                title=gene_name,
+                xticks=False,
+                yticks=False,
+                label_prefix='PHATE',
+                colorbar=False,
+                fontsize=16,
+                s=5,
+                alpha=0.25)
+            ax.set_axis_off()
+
+        fig.tight_layout(pad=2)
+        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_gene_expressions.png'))
+        plt.close(fig)
+
     return
 
 
@@ -174,9 +215,9 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(embedding_save_path), exist_ok=True)
 
     model.eval()
-    model.load_state_dict(torch.load(model_save_path, map_location=device))
+    model.load_state_dict(torch.load(model_save_path, map_location=device, weights_only=True))
     if not os.path.isfile(embedding_save_path):
         save_test_set_embeddings(model, test_loader, device, embedding_save_path)
 
     class_map = test_loader.dataset.dataset.class_map
-    visualize_test_set_embeddings(embedding_save_path, class_map)
+    visualize_test_set_embeddings(embedding_save_path, class_map, gene_list=dataset.gene_list)

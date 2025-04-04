@@ -1,3 +1,4 @@
+from typing import List
 import logging
 import os
 import anndata as ad
@@ -39,6 +40,7 @@ class PlacentaDataset(Dataset):
         self._load_data(data_folder)
         self.k_hop = k_hop
         self.transform = transform
+        self.gene_list = self._read_gene_list()
 
     def _load_data(self, data_folder: str) -> None:
         graph_path_list = sorted(glob(os.path.join(data_folder, '*.h5ad')))
@@ -66,6 +68,10 @@ class PlacentaDataset(Dataset):
         self.graph_path_arr = np.array(graph_path_list)
         self.class_arr = np.array(class_list)
         return
+
+    def _read_gene_list(self) -> List:
+        adata = ad.read_h5ad(self.graph_path_arr[0])
+        return adata.var.to_numpy().flatten().tolist()
 
     def __len__(self) -> int:
         return len(self.graph_path_arr)
@@ -170,3 +176,5 @@ def create_knn_graph(adata, K: int = 10):
 
 if __name__ == '__main__':
     dataset = PlacentaDataset()
+    dataset = PlacentaDatasetHypergraph()
+    item = dataset[0]

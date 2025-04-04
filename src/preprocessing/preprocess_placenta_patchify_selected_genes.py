@@ -15,7 +15,7 @@ folder_out = '../../data/spatial_placenta_accreta/patchified_selected_genes/'
 NUM_BINS = 100
 MIN_PIXEL_PER_GRAPH = 20
 
-GENES_BY_CELL_TYPE = {
+GENES_BY_CATEGORY = {
     'Cytotrophoblast': ['KRT7', 'STMN1', 'PARP1', 'PAGE4', 'GATA3', 'KRT8', 'SPINT1'],
     'Syncytiotrophoblast': ['CSH2', 'INHA', 'HSD3B1', 'ESR1', 'PGR', 'CD274', 'PSG4', 'ERVFRD-1', 'LGALS16', 'GDF15',
                             'INSL4', 'CGA', 'CYP19A1', 'TFPI'],
@@ -37,7 +37,7 @@ GENES_BY_CELL_TYPE = {
 
 if __name__ == '__main__':
     # Get all genes of interest.
-    selected_genes = np.unique(sum(GENES_BY_CELL_TYPE.values(), []))
+    selected_genes = np.unique(sum(GENES_BY_CATEGORY.values(), []))
 
     # Find the folders for pixel-by-gene matrices and the corresponding spatial images.
     all_folder_paths = sorted(glob(os.path.join(folder_in, '0*', 'filtered_feature_bc_matrix')))

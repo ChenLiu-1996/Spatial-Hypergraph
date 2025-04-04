@@ -238,6 +238,7 @@ class ScatteringActivation(nn.Module):
         edge_emb = self.activate(edge_emb)
         return node_emb, edge_emb
 
+
 class FeatureSelfAttention(nn.Module):
     def __init__(self, embed_dim=64, num_heads=4):
         super().__init__()
@@ -258,6 +259,7 @@ class FeatureSelfAttention(nn.Module):
         if return_attn:
             return x, attn_weights
         return x
+
 
 class HypergraphScatteringNet(nn.Module):
     '''
@@ -332,10 +334,14 @@ class HypergraphScatteringNet(nn.Module):
         self.layers = nn.ModuleList(self.layers)
 
         # Self-attention among features to help identify feature importance.
-        self.attention = FeatureSelfAttention(embed_dim=64, num_heads=4)
+        self.attention = FeatureSelfAttention(embed_dim=32, num_heads=4)
 
         # Final classifier.
-        self.classifier = torch.nn.Linear(self.out_dimensions[-1], self.out_channels)
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(self.out_dimensions[-1], self.out_dimensions[-1]),
+            torch.nn.ELU(),
+            torch.nn.Linear(self.out_dimensions[-1], self.out_channels),
+        )
 
     # def interpret_feature_importance(self):
     #     '''
@@ -355,7 +361,8 @@ class HypergraphScatteringNet(nn.Module):
                 hyperedge_attr: Optional[torch.Tensor] = None,
                 num_edges: Optional[int] = None,
                 batch: Optional[torch.Tensor] = None,
-                return_wavelet_embeddings: bool = False):
+                return_wavelet_embeddings: bool = False,
+                return_attention: bool = False):
         '''
         Forward pass of the HSN module.
 
@@ -412,11 +419,14 @@ class HypergraphScatteringNet(nn.Module):
             x = global_add_pool(x, batch)
             hyperedge_attr = global_add_pool(hyperedge_attr, batch)
 
-        x = self.attention(x)
-        x = self.classifier(x)
-        # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
-
-        return x
+        if not return_attention:
+            x = self.attention(x)
+            x = self.classifier(x)
+            # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
+            return x
+        else:
+            x, attn = self.attention(x, return_attn=True)
+            return attn
 
 
 if __name__ == '__main__':

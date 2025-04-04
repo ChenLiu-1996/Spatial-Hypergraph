@@ -233,7 +233,7 @@ if __name__ == "__main__":
         model.train()
         model, loss, accuracy, auroc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters)
         scheduler.step()
-        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: Training Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
+        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: (LR={optimizer.param_groups[0]['lr']}) Training Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
             filepath=log_file)
 
         model.eval()
