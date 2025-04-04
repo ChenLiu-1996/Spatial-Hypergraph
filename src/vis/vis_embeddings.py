@@ -20,6 +20,7 @@ from train import prepare_dataloaders
 
 ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 
+
 @torch.no_grad()
 def save_test_set_embeddings(model, test_loader, device, embedding_save_path):
     hyperedge_emb_arr, hyperedge_label_arr, hyperedge_gene_expression_arr = None, None, None
