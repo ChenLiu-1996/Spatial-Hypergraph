@@ -35,21 +35,23 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
     for data_item in tqdm(test_loader):
         data_item = data_item.to(device)
         y_true = torch.Tensor(data_item.y).long().to(device)
-        attention_weights = model(
+        niche_attn, feature_attn = model(
             x=data_item.x,
             hyperedge_index=data_item.edge_index,
             hyperedge_attr=data_item.edge_attr,
             batch=data_item.batch,
             return_attention=True)
 
-        attention_weights = attention_weights.cpu().detach().numpy().astype(np.float16)
+        import pdb; pdb.set_trace()
+
+        feature_attn = feature_attn.cpu().detach().numpy().astype(np.float16)
         subject_label = y_true.cpu().detach().numpy().reshape(-1, 1)
 
         if attention_arr is None:
-            attention_arr = attention_weights
+            attention_arr = feature_attn
             subject_label_arr = subject_label
         else:
-            attention_arr = np.concatenate((attention_arr, attention_weights), axis=0)
+            attention_arr = np.concatenate((attention_arr, feature_attn), axis=0)
             subject_label_arr = np.concatenate((subject_label_arr, subject_label), axis=0)
 
     with open(attention_save_path, 'wb+') as f:

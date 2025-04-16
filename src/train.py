@@ -199,7 +199,7 @@ if __name__ == "__main__":
         fixed_weights=True,
         layout=['hsm'],
         normalize='right',
-        pooling='mean',
+        pooling='attention',
         scale_list=[0,1,2,4]
     )
     model.eval()

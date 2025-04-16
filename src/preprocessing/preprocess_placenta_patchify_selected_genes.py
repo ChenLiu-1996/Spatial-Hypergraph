@@ -15,7 +15,7 @@ folder_out = '../../data/spatial_placenta_accreta/patchified_selected_genes/'
 NUM_BINS = 100
 MIN_PIXEL_PER_GRAPH = 20
 
-GENES_BY_CATEGORY = {
+GENES_BY_CELL_TYPE = {
     'Cytotrophoblast': ['KRT7', 'STMN1', 'PARP1', 'PAGE4', 'GATA3', 'KRT8', 'SPINT1'],
     'Syncytiotrophoblast': ['CSH2', 'INHA', 'HSD3B1', 'ESR1', 'PGR', 'CD274', 'PSG4', 'ERVFRD-1', 'LGALS16', 'GDF15',
                             'INSL4', 'CGA', 'CYP19A1', 'TFPI'],
@@ -34,10 +34,31 @@ GENES_BY_CATEGORY = {
     'Myometrial': ['ACTA2', 'CNN1', 'OXTR'],
 }
 
+GENES_BY_FUNCTION = {
+    'EMT_TGF': ['TGFB1', 'TGFB2', 'TGFB3', 'INHA', 'INHBA', 'INHHBB', 'INHBC', 'INHBE', 'NODAL', 'MSTN', 'BMP1',
+                'BMP2', 'BMP3', 'BMP4', 'BMP5', 'BMP6', 'BMP7', 'BMP8A', 'BMP8B', 'GDF2', 'BMP10', 'GDF3', 'GDF5',
+                'GDF6', 'GDF7', 'GDF9', 'BMP15', 'GDF10', 'GDF11', 'GDF15', 'AMH', 'LEFTY2', 'LEFTY1'],
+    'EMT_FGF': ['FGF1', 'FGF2', 'FGF3', 'FGF7', 'FGF10', 'FGF22', 'FGF22', 'FGF4', 'FGF5', 'FGF6', 'FGF8', 'FGF17',
+                'FGF18', 'FGF9', 'FGF16', 'FGF20', 'FGF19', 'FGF21', 'FGF23', 'FGFR1', 'FGFR2', 'FGFR3', 'FGFR4'],
+    'EMT_EGF': ['EGF', 'EGFR'],
+    'EMT_HIF': ['HIF1A', 'ARNT', 'EPAS1', 'ARNT2', 'HIF3A', 'ARNT3'],
+    'EMT_other': ['SNAI1', 'SNAI2', 'SNAI3', 'ZEB1', 'ZEB2', 'TWIST1', 'TWIST2', 'RREB1', 'SMAD', 'CDH1', 'VIM', 'FSP1',
+                  'STAT3', 'FOXC2', 'ITGA5', 'VCAN', 'COL3A1', 'COL5A1', 'MSN', 'FN1', 'WNT5B', 'JAG1', 'NOTCH1',
+                  'MCL1', 'CXCR4', 'CXCL12', 'ADAM19', 'ADAM12', 'CTNNB1', 'MSX2', 'SERPINF1', 'CSH1', 'HLA-G',
+                  'ERVFRD-1', 'SIGLEC6', 'CLDN1', 'ANK3', 'MARVELD3', 'OCLN', 'KRT19', 'ITGB4', 'ITGA5', 'ANK3'],
+    'EMT_MMP': ['MMP2', 'MMP9', 'MMP13', 'MMP14', 'MMP11', 'MMP21'],
+    'Hypoxia': ['DUSP1', 'NOX4', 'PLOD', 'BHLHE40', 'VCAM1', 'RND3', 'TXNIP', 'SLC21', 'SLC2A3', 'HK2', 'LDHA', 'LDHC',
+                'G6PD', 'TALDO1', 'GAPDH', 'ENO1', 'ENO2', 'HKDC1', 'PDK1', 'GPI', 'PGK1', 'PGM1', 'IDH3A', 'ALDOA',
+                'ALDOC', 'VASP', 'HSP90', 'VEGFR1', 'KITLG', 'TEK', 'BACE1', 'ANTXR2', 'BDNF', 'NFKBIA', 'MOV10L1',
+                'TP53', 'PCNA', 'CCRK', 'CCND1', 'E2F3', 'E2F6'],
+    'Oxidative_stress': ['EPHX1', 'SOD1', 'SOD2', 'SOD3', 'CYP1A1', 'NOS1', 'NOS2', 'NOS3', 'MAOB', 'PTGS2', 'CAT',
+                         'GPX', 'GST', 'TXN', 'HMOX1', 'NQO1', 'TXRD1', 'PRDX4', 'NEIL3'],
+}
+
 
 if __name__ == '__main__':
     # Get all genes of interest.
-    selected_genes = np.unique(sum(GENES_BY_CATEGORY.values(), []))
+    selected_genes = np.unique(sum(GENES_BY_CELL_TYPE.values(), []) + sum(GENES_BY_FUNCTION.values(), []))
 
     # Find the folders for pixel-by-gene matrices and the corresponding spatial images.
     all_folder_paths = sorted(glob(os.path.join(folder_in, '0*', 'filtered_feature_bc_matrix')))

@@ -22,6 +22,7 @@ from torch_geometric.nn.pool import global_mean_pool
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import scatter
 from torch_geometric.nn import global_mean_pool, global_max_pool, global_add_pool
+from torch_scatter import scatter_softmax, scatter_sum
 
 
 class LazyLayer(torch.nn.Module):
@@ -154,11 +155,11 @@ class HyperScatteringModule(nn.Module):
     def __init__(self,
                  in_channels,
                  num_features: int = 18085,
-                 trainable_laziness=False,
-                 trainable_scales=False,
-                 fixed_weights=True,
-                 normalize="right",
-                 reshape=True,
+                 trainable_laziness: bool = False,
+                 trainable_scales: bool = False,
+                 fixed_weights: bool = True,
+                 normalize: str = "right",
+                 reshape: bool = True,
                  scale_list = None):
         super().__init__()
         self.in_channels = in_channels
@@ -167,31 +168,23 @@ class HyperScatteringModule(nn.Module):
         self.diffusion_layer = HyperDiffusion(in_channels, in_channels, trainable_laziness, fixed_weights, normalize)
 
         if scale_list is None:
-            self.wavelet_constructor = torch.nn.Parameter(torch.tensor([
-                [1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, -1],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-            ], dtype=torch.float, requires_grad=trainable_scales))
-            self.diffusion_levels = 16
-        else:
-            # ensure that scale list is an increasing list of integers with 0 as the first element
-            # ensure that 1 is the second element
-            assert all(isinstance(x, int) for x in scale_list)
-            assert all(scale_list[i] < scale_list[i+1] for i in range(len(scale_list)-1))
-            assert scale_list[0] == 0
-            assert scale_list[1] == 1
+            scale_list = [0, 1, 2, 4, 8, 16]
 
-            self.diffusion_levels = scale_list[-1]
-            wavelet_matrix = np.zeros((len(scale_list), self.diffusion_levels+1))
-            for i in range(len(scale_list) - 1):
-                wavelet_matrix[i, scale_list[i]] = 1
-                wavelet_matrix[i, scale_list[i+1]] = -1
-            wavelet_matrix[-1, -1] = 1
-            self.wavelet_constructor = torch.nn.Parameter(torch.from_numpy(wavelet_matrix).float(),
-                                                          requires_grad=trainable_scales)
+        # ensure that scale list is an increasing list of integers with 0 as the first element
+        # ensure that 1 is the second element
+        assert all(isinstance(x, int) for x in scale_list)
+        assert all(scale_list[i] < scale_list[i+1] for i in range(len(scale_list)-1))
+        assert scale_list[0] == 0
+        assert scale_list[1] == 1
+
+        self.diffusion_levels = scale_list[-1]
+        wavelet_matrix = np.zeros((len(scale_list), self.diffusion_levels+1))
+        for i in range(len(scale_list) - 1):
+            wavelet_matrix[i, scale_list[i]] = 1
+            wavelet_matrix[i, scale_list[i+1]] = -1
+        wavelet_matrix[-1, -1] = 1
+        self.wavelet_constructor = torch.nn.Parameter(torch.from_numpy(wavelet_matrix).float(),
+                                                      requires_grad=trainable_scales)
 
         self.reshape = reshape
 
@@ -260,6 +253,19 @@ class FeatureSelfAttention(nn.Module):
             return x, attn_weights
         return x
 
+class NicheAttention(nn.Module):
+    def __init__(self, num_features: int):
+        super().__init__()
+        self.gate_nn = nn.Linear(num_features, 1)
+
+    def forward(self, x, batch, return_attn=False):
+        gate_scores = self.gate_nn(x).squeeze(-1)                        # [N]
+        attn_weights = scatter_softmax(gate_scores, batch)               # [N]
+        out = scatter_sum(x * attn_weights.unsqueeze(-1), batch, dim=0)  # [B, F]
+
+        if return_attn:
+            return out, attn_weights
+        return out
 
 class HypergraphScatteringNet(nn.Module):
     '''
@@ -290,7 +296,7 @@ class HypergraphScatteringNet(nn.Module):
                  fixed_weights=True,
                  layout=['hsm', 'hsm'],
                  normalize="right",
-                 pooling='mean',
+                 pooling='attention',
                  **kwargs):
         super().__init__()
         self.in_channels = in_channels
@@ -305,9 +311,6 @@ class HypergraphScatteringNet(nn.Module):
         self.normalize = normalize
         self.pooling = pooling
         self.scale_list = kwargs.get('scale_list', None)
-
-        if pooling == 'attention':
-            raise NotImplementedError
 
         for layout_name in layout:
             if layout_name == 'hsm':
@@ -333,8 +336,11 @@ class HypergraphScatteringNet(nn.Module):
 
         self.layers = nn.ModuleList(self.layers)
 
+        # Attention pooling over nodes to help identify niche importance.
+        self.niche_attention = NicheAttention(num_features=self.out_dimensions[-1])
+
         # Self-attention among features to help identify feature importance.
-        self.attention = FeatureSelfAttention(embed_dim=32, num_heads=4)
+        self.feature_attention = FeatureSelfAttention(embed_dim=32, num_heads=4)
 
         # Final classifier.
         self.classifier = torch.nn.Sequential(
@@ -408,25 +414,35 @@ class HypergraphScatteringNet(nn.Module):
         # Apply selected pooling
         if self.pooling is not None:
             assert batch is not None
+
         if self.pooling == 'mean':
             x = global_mean_pool(x, batch)
-            hyperedge_attr = global_mean_pool(hyperedge_attr, edge_batch)
+            if edge_batch is not None:
+                hyperedge_attr = global_mean_pool(hyperedge_attr, edge_batch)
         elif self.pooling == 'max':
             x = global_max_pool(x, batch)
             if edge_batch is not None:
                 hyperedge_attr = global_max_pool(hyperedge_attr, edge_batch)
         elif self.pooling == 'sum':
             x = global_add_pool(x, batch)
-            hyperedge_attr = global_add_pool(hyperedge_attr, batch)
-
-        if not return_attention:
-            x = self.attention(x)
-            x = self.classifier(x)
-            # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
-            return x
+            if edge_batch is not None:
+                hyperedge_attr = global_add_pool(hyperedge_attr, batch)
+        elif self.pooling == 'attention':
+            if return_attention:
+                x, niche_attn = self.niche_attention(x, batch, return_attn=True)
+            else:
+                x = self.niche_attention(x, batch)
         else:
-            x, attn = self.attention(x, return_attn=True)
-            return attn
+            raise ValueError(f'Pooling method {self.pooling} not supported.')
+
+        if return_attention:
+            x, feature_attn = self.feature_attention(x, return_attn=True)
+            return niche_attn, feature_attn
+
+        x = self.feature_attention(x)
+        x = self.classifier(x)
+        # NOTE: Do not add softmax here, because torch.nn.CrossEntropyLoss() internally performs softmax.
+        return x
 
 
 if __name__ == '__main__':
@@ -444,4 +460,3 @@ if __name__ == '__main__':
         pooling='linear_combination',
         scale_list=[0,1,2,4]
     )
-    model.interpret_feature_importance()

@@ -60,6 +60,7 @@ python -m pip install pyarrow
 python -m pip install transformers
 python -m pip install dhg==0.9.4 --no-deps
 python -m pip install optuna torchmetrics scanpy
+python -m pip install torch-scatter
 
 export PROJ_DIR=/usr/local
 export PROJ_LIBDIR=/usr/local/lib/
