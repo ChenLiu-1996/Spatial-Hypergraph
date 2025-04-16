@@ -250,6 +250,7 @@ class FeatureSelfAttention(nn.Module):
             return x, attn_weights
         return x
 
+
 class NicheAttention(nn.Module):
     def __init__(self, num_features: int):
         super().__init__()
@@ -263,6 +264,7 @@ class NicheAttention(nn.Module):
         if return_attn:
             return out, attn_weights
         return out
+
 
 class HypergraphScatteringNet(nn.Module):
     '''

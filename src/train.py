@@ -168,7 +168,7 @@ if __name__ == "__main__":
     args.add_argument('--max-validation-iters', default=256, type=int)
     args.add_argument('--batch-size', default=1, type=int)
     args.add_argument('--desired-batch-size', default=16, type=int)
-    args.add_argument('--learning-rate', default=1e-3, type=float)
+    args.add_argument('--learning-rate', default=1e-2, type=float)
     args.add_argument('--trainable-scales', action='store_true')
     args.add_argument('--k-hop', default=1, type=int)
     args.add_argument('--num-workers', default=8, type=int)
@@ -228,26 +228,26 @@ if __name__ == "__main__":
     log(config_str, filepath=log_file, to_console=True)
 
     log(f'[HypergraphScattering] Training begins.', filepath=log_file)
-    best_val_loss = np.inf
+    best_val_auroc = 0
     for epoch_idx in tqdm(range(args.max_epochs)):
         model.train()
-        model, loss, accuracy, auroc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters)
+        model, train_loss, train_accuracy, train_auroc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters)
         scheduler.step()
-        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: (LR={optimizer.param_groups[0]['lr']}) Training Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
+        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: (LR={optimizer.param_groups[0]['lr']}) Training Loss {train_loss:.3f}, ACC {train_accuracy:.3f}, macro AUROC {train_auroc:.3f}.',
             filepath=log_file)
 
         model.eval()
-        model, loss, accuracy, auroc = val_epoch(model, val_loader, loss_fn, device, args.max_validation_iters)
-        log(f'Validation Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
+        model, val_loss, val_accuracy, val_auroc = val_epoch(model, val_loader, loss_fn, device, args.max_validation_iters)
+        log(f'Validation Loss {val_loss:.3f}, ACC {val_accuracy:.3f}, macro AUROC {val_auroc:.3f}.',
             filepath=log_file)
 
-        if loss < best_val_loss:
-            best_val_loss = loss
+        if val_auroc > best_val_auroc:
+            best_val_auroc = val_auroc
             torch.save(model.state_dict(), model_save_path)
             log('Model weights successfully saved.', filepath=log_file)
 
     model.eval()
     model.load_state_dict(torch.load(model_save_path, map_location=device, weights_only=True))
-    model, loss, accuracy, auroc = test_model(model, test_loader, loss_fn, device)
-    log(f'\n\nTest Loss {loss:.3f}, ACC {accuracy:.3f}, macro AUROC {auroc:.3f}.',
+    model, test_loss, test_accuracy, test_auroc = test_model(model, test_loader, loss_fn, device)
+    log(f'\n\nTest Loss {test_loss:.3f}, ACC {test_accuracy:.3f}, macro AUROC {test_auroc:.3f}.',
         filepath=log_file)
