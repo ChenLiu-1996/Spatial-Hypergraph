@@ -160,15 +160,12 @@ class HyperScatteringModule(nn.Module):
                  fixed_weights: bool = True,
                  normalize: str = "right",
                  reshape: bool = True,
-                 scale_list = None):
+                 scale_list = [0, 1, 2, 4, 8, 16]):
         super().__init__()
         self.in_channels = in_channels
         self.num_features = num_features
         self.trainable_laziness = trainable_laziness
         self.diffusion_layer = HyperDiffusion(in_channels, in_channels, trainable_laziness, fixed_weights, normalize)
-
-        if scale_list is None:
-            scale_list = [0, 1, 2, 4, 8, 16]
 
         # ensure that scale list is an increasing list of integers with 0 as the first element
         # ensure that 1 is the second element
@@ -310,7 +307,10 @@ class HypergraphScatteringNet(nn.Module):
         self.out_dimensions = [in_channels]
         self.normalize = normalize
         self.pooling = pooling
-        self.scale_list = kwargs.get('scale_list', None)
+        scale_list = kwargs.get('scale_list', None)
+        if scale_list is None:
+            scale_list = [0, 1, 2, 4, 8, 16]
+        self.scale_list = scale_list
 
         for layout_name in layout:
             if layout_name == 'hsm':
@@ -340,7 +340,7 @@ class HypergraphScatteringNet(nn.Module):
         self.niche_attention = NicheAttention(num_features=self.out_dimensions[-1])
 
         # Self-attention among features to help identify feature importance.
-        self.feature_attention = FeatureSelfAttention(embed_dim=32, num_heads=4)
+        self.feature_attention = FeatureSelfAttention(embed_dim=32, num_heads=len(self.scale_list))
 
         # Final classifier.
         self.classifier = torch.nn.Sequential(
