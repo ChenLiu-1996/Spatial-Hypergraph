@@ -60,7 +60,7 @@ python -m pip install pyarrow
 python -m pip install transformers
 python -m pip install dhg==0.9.4 --no-deps
 python -m pip install optuna torchmetrics scanpy
-python -m pip install torch-scatter -f https://data.pyg.org/whl/torch-2.2.0+cu121.html
+python -m pip install torch-scatter -f https://data.pyg.org/whl/torch-2.5.0+cu121.html
 
 
 export PROJ_DIR=/usr/local
