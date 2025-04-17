@@ -232,6 +232,10 @@ class ScatteringActivation(nn.Module):
 
 
 class FeatureSelfAttention(nn.Module):
+    '''
+    Feature-feature attention.
+    The descriptor vector for each feature is constructed from the different wavelet scales.
+    '''
     def __init__(self, num_scales: int = 4):
         super().__init__()
         self.attn = nn.MultiheadAttention(num_scales, num_heads=1, batch_first=True)
