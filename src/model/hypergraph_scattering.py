@@ -205,8 +205,10 @@ class HyperScatteringModule(nn.Module):
         edge_diffusion_levels = rearrange(edge_features, 'i j k -> i j k').float()
         node_emb = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, diffusion_levels) # J x num_nodes x num_features x 1
         edge_emb = torch.einsum("ij,jkl->ikl", self.wavelet_constructor, edge_diffusion_levels)
-        node_emb = rearrange(node_emb, 'w n f -> n (w f)') if self.reshape else torch.stack(node_emb)
-        edge_emb = rearrange(edge_emb, 'w e f -> e (w f)') if self.reshape else torch.stack(edge_emb)
+        # [scales, nodes, features] -> [nodes, scales * features]
+        node_emb = rearrange(node_emb, 's n f -> n (s f)') if self.reshape else torch.stack(node_emb)
+        # [scales, edges, features] -> [edges, scales * features]
+        edge_emb = rearrange(edge_emb, 's e f -> e (s f)') if self.reshape else torch.stack(edge_emb)
 
         return node_emb, edge_emb
 
@@ -230,22 +232,19 @@ class ScatteringActivation(nn.Module):
 
 
 class FeatureSelfAttention(nn.Module):
-    def __init__(self, embed_dim=64, num_heads=4):
+    def __init__(self, num_scales: int = 4):
         super().__init__()
-        self.input_proj = nn.Linear(1, embed_dim)
-        self.attn = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
-        self.output_proj = nn.Linear(embed_dim, 1)
+        self.attn = nn.MultiheadAttention(num_scales, num_heads=1, batch_first=True)
+        self.proj = nn.Linear(num_scales, 1)
 
     def forward(self, x, return_attn: bool = False):
         '''
-        The shape of x is [B, L]: (batch size, num features).
+        The shape of x is [B, F, S]: (batch size, num features, scattering scales).
         '''
-        x = x.unsqueeze(-1)                   # [B, L, 1]
-        x = self.input_proj(x)                # [B, L, embed_dim]
-        # Apply self-attention across the feature dimension (L positions)
-        x, attn_weights = self.attn(x, x, x)  # [B, L, embed_dim]
-        x = self.output_proj(x)               # [B, L, 1]
-        x = x.squeeze(-1)                     # [B, L]
+        # Apply self-attention across the feature dimension (F positions)
+        x, attn_weights = self.attn(x, x, x)  # [B, F, S]
+        x = self.proj(x)                      # [B, F, 1]
+        x = x.squeeze(-1)                     # [B, F]
         if return_attn:
             return x, attn_weights
         return x
@@ -300,6 +299,7 @@ class HypergraphScatteringNet(nn.Module):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.num_features = num_features
         self.hidden_channels = hidden_channels
         self.trainable_laziness = trainable_laziness
         self.trainable_scales = trainable_scales
@@ -318,7 +318,7 @@ class HypergraphScatteringNet(nn.Module):
             if layout_name == 'hsm':
                 scattering_layer = HyperScatteringModule(
                     self.out_dimensions[-1],
-                    num_features=num_features,
+                    num_features=self.num_features,
                     trainable_laziness=trainable_laziness,
                     trainable_scales=self.trainable_scales,
                     fixed_weights=self.fixed_weights,
@@ -342,13 +342,13 @@ class HypergraphScatteringNet(nn.Module):
         self.niche_attention = NicheAttention(num_features=self.out_dimensions[-1])
 
         # Self-attention among features to help identify feature importance.
-        self.feature_attention = FeatureSelfAttention(embed_dim=32, num_heads=len(self.scale_list))
+        self.feature_attention = FeatureSelfAttention(num_scales=len(self.scale_list))
 
         # Final classifier.
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(self.out_dimensions[-1], self.out_dimensions[-1]),
+            torch.nn.Linear(self.num_features, self.num_features),
             torch.nn.ELU(),
-            torch.nn.Linear(self.out_dimensions[-1], self.out_channels),
+            torch.nn.Linear(self.num_features, self.out_channels),
         )
 
     # def interpret_feature_importance(self):
@@ -436,6 +436,9 @@ class HypergraphScatteringNet(nn.Module):
                 x = self.niche_attention(x, batch)
         else:
             raise ValueError(f'Pooling method {self.pooling} not supported.')
+
+        # Isolate the scattering scales to a separate dimension.
+        x = rearrange(x, 'b (s f) -> b f s', s=len(self.scale_list))
 
         if return_attention:
             x, feature_attn = self.feature_attention(x, return_attn=True)
