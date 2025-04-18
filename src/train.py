@@ -174,8 +174,8 @@ if __name__ == "__main__":
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)
-    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_all_genes', type=str)
-    args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
+    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_selected_genes', type=str)
+    args.add_argument('--num-features', default=212, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
     seed_everything(args.random_seed)

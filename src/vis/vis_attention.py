@@ -23,7 +23,8 @@ ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 
 @torch.no_grad()
 def save_test_set_attentions(model, test_loader, device, attention_save_path):
-    attention_arr, subject_label_arr = None, None
+    niche_attention_list = []
+    feature_attention_arr, y_true_arr, y_pred_arr = None, None, None
 
     # Aggregate the MLP weights.
     linear_layers = [m for m in model.classifier.modules() if isinstance(m, torch.nn.Linear)]
@@ -41,47 +42,59 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
             hyperedge_attr=data_item.edge_attr,
             batch=data_item.batch,
             return_attention=True)
+        y_pred = model(
+            x=data_item.x,
+            hyperedge_index=data_item.edge_index,
+            hyperedge_attr=data_item.edge_attr,
+            batch=data_item.batch)
 
-        import pdb; pdb.set_trace()
-
+        assert len(niche_attn.shape) == 1
+        niche_attn = niche_attn.cpu().detach().numpy().astype(np.float16)
         feature_attn = feature_attn.cpu().detach().numpy().astype(np.float16)
-        subject_label = y_true.cpu().detach().numpy().reshape(-1, 1)
+        y_true = y_true.cpu().detach().numpy().reshape(1, 1)
+        y_pred = y_pred.cpu().detach().numpy().reshape(1, -1)
 
-        if attention_arr is None:
-            attention_arr = feature_attn
-            subject_label_arr = subject_label
+        if feature_attention_arr is None:
+            niche_attention_list = [niche_attn]
+            feature_attention_arr = feature_attn
+            y_true_arr = y_true
+            y_pred_arr = y_pred
         else:
-            attention_arr = np.concatenate((attention_arr, feature_attn), axis=0)
-            subject_label_arr = np.concatenate((subject_label_arr, subject_label), axis=0)
+            niche_attention_list.append(niche_attn)
+            feature_attention_arr = np.concatenate((feature_attention_arr, feature_attn), axis=0)
+            y_true_arr = np.concatenate((y_true_arr, y_true), axis=0)
+            y_pred_arr = np.concatenate((y_pred_arr, y_pred), axis=0)
 
     with open(attention_save_path, 'wb+') as f:
         np.savez(f,
-                 attention_arr=attention_arr,
-                 subject_label_arr=subject_label_arr,
+                 niche_attention_arr=np.array(niche_attention_list, dtype=object),
+                 feature_attention_arr=feature_attention_arr,
+                 y_true_arr=y_true_arr,
+                 y_pred_arr=y_pred_arr,
                  mlp_weights=mlp_weights)
     return
 
-def visualize_test_set_attention(embedding_save_path, class_map):
+
+def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
     with open(embedding_save_path, 'rb') as f:
+        import pdb; pdb.set_trace()
         npzfile = np.load(f)
-        attention_arr = npzfile['attention_arr']
-        subject_label_arr = npzfile['subject_label_arr']
+        niche_attention_arr = npzfile['niche_attention_arr']
+        feature_attention_arr = npzfile['feature_attention_arr']
+        y_true_arr = npzfile['y_true_arr']
+        y_pred_arr = npzfile['y_pred_arr']
         mlp_weights = npzfile['mlp_weights']
 
         fig = plt.figure(figsize=(24, 16))
         for class_idx, class_name in class_map.items():
-            subject_indices = (subject_label_arr == class_idx).flatten()
+            subject_indices = (y_true_arr == class_idx).flatten()
 
-            attention_curr_class = attention_arr[subject_indices, ...].mean(axis=0)
+            attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
             attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
                 attention_curr_class.max() - attention_curr_class.min())
 
             ax = fig.add_subplot(2, len(class_map.items()), class_idx + 1)
             matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
-            ax.set_xticks([0, 63, 127, 191, 255])
-            ax.set_xticklabels([0, 63, 127, 191, 255])
-            ax.set_yticks([0, 63, 127, 191, 255])
-            ax.set_yticklabels([0, 63, 127, 191, 255])
             ax.set_title(class_name, fontsize=16)
             cbar = fig.colorbar(matrix_fig, ax=ax)
             ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
@@ -95,9 +108,9 @@ def visualize_test_set_attention(embedding_save_path, class_map):
         fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'attentions.png'))
 
         for class_idx, class_name in class_map.items():
-            subject_indices = (subject_label_arr == class_idx).flatten()
+            subject_indices = (y_true_arr == class_idx).flatten()
 
-            attention_curr_class = attention_arr[subject_indices, ...].mean(axis=0)
+            attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
             mlp_weight_curr_class = mlp_weights[class_idx, :]
             attention_curr_class = attention_curr_class * mlp_weight_curr_class[None, :]
             attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
@@ -105,10 +118,6 @@ def visualize_test_set_attention(embedding_save_path, class_map):
 
             ax = fig.add_subplot(2, len(class_map.items()), len(class_map.items()) + class_idx + 1)
             matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
-            ax.set_xticks([0, 63, 127, 191, 255])
-            ax.set_xticklabels([0, 63, 127, 191, 255])
-            ax.set_yticks([0, 63, 127, 191, 255])
-            ax.set_yticklabels([0, 63, 127, 191, 255])
             ax.set_title(class_name, fontsize=16)
             cbar = fig.colorbar(matrix_fig, ax=ax)
             ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
@@ -128,12 +137,12 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Entry point.')
     args.add_argument('--train-val-test-ratio', default='6:2:2', type=str)
     args.add_argument('--trainable-scales', action='store_true')
-    args.add_argument('--k-hop', default=1, type=int)
+    args.add_argument('--k-hop', default=3, type=int)
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)
-    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
-    args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
+    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_selected_genes', type=str)
+    args.add_argument('--num-features', default=212, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
     args.batch_size = 1
@@ -158,7 +167,7 @@ if __name__ == "__main__":
         fixed_weights=True,
         layout=['hsm'],
         normalize='right',
-        pooling='mean',
+        pooling='attention',
         scale_list=[0,1,2,4]
     )
     model.eval()
@@ -175,5 +184,6 @@ if __name__ == "__main__":
     if not os.path.isfile(attention_save_path):
         save_test_set_attentions(model, test_loader, device, attention_save_path)
 
+    gene_list = test_loader.dataset.dataset.gene_list
     class_map = test_loader.dataset.dataset.class_map
-    visualize_test_set_attention(attention_save_path, class_map)
+    visualize_test_set_attention(attention_save_path, gene_list=gene_list, class_map=class_map)
