@@ -76,61 +76,132 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
 
 
 def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
-    with open(embedding_save_path, 'rb') as f:
-        import pdb; pdb.set_trace()
-        npzfile = np.load(f)
-        niche_attention_arr = npzfile['niche_attention_arr']
-        feature_attention_arr = npzfile['feature_attention_arr']
-        y_true_arr = npzfile['y_true_arr']
-        y_pred_arr = npzfile['y_pred_arr']
-        mlp_weights = npzfile['mlp_weights']
+    npzfile = np.load(embedding_save_path, allow_pickle=True)
+    niche_attention_arr = npzfile['niche_attention_arr']
+    feature_attention_arr = npzfile['feature_attention_arr']
+    y_true_arr = npzfile['y_true_arr']
+    y_pred_arr = npzfile['y_pred_arr']
+    mlp_weights = npzfile['mlp_weights']
 
-        fig = plt.figure(figsize=(24, 16))
-        for class_idx, class_name in class_map.items():
-            subject_indices = (y_true_arr == class_idx).flatten()
+    # Softmax over classes.
+    y_pred_arr = softmax(y_pred_arr)
+    confidence_arr = y_pred_arr.max(axis=1).reshape(-1, 1)
+    y_pred_binary_arr = y_pred_arr.argmax(axis=1).reshape(-1, 1)
 
-            attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
-            attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
-                attention_curr_class.max() - attention_curr_class.min())
+    fig = plt.figure(figsize=(24, 16))
+    for class_idx, class_name in class_map.items():
+        subject_indices = (y_true_arr == class_idx).flatten()
 
-            ax = fig.add_subplot(2, len(class_map.items()), class_idx + 1)
-            matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
-            ax.set_title(class_name, fontsize=16)
-            cbar = fig.colorbar(matrix_fig, ax=ax)
-            ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels(ticks)
+        attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
+        attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
+            attention_curr_class.max() - attention_curr_class.min())
 
-            if class_idx == 0:
-                ax.set_ylabel('Attention weights only', fontsize=16)
+        ax = fig.add_subplot(2, len(class_map.items()), class_idx + 1)
+        matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
+        ax.set_title(class_name, fontsize=16)
+        cbar = fig.colorbar(matrix_fig, ax=ax)
+        ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        cbar.set_ticks(ticks)
+        cbar.set_ticklabels(ticks)
 
-        fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'attentions.png'))
+        if class_idx == 0:
+            ax.set_ylabel('Attention weights only', fontsize=16)
 
-        for class_idx, class_name in class_map.items():
-            subject_indices = (y_true_arr == class_idx).flatten()
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_attentions.png'))
 
-            attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
-            mlp_weight_curr_class = mlp_weights[class_idx, :]
-            attention_curr_class = attention_curr_class * mlp_weight_curr_class[None, :]
-            attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
-                attention_curr_class.max() - attention_curr_class.min())
+    for class_idx, class_name in class_map.items():
+        subject_indices = (y_true_arr == class_idx).flatten()
 
-            ax = fig.add_subplot(2, len(class_map.items()), len(class_map.items()) + class_idx + 1)
-            matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
-            ax.set_title(class_name, fontsize=16)
-            cbar = fig.colorbar(matrix_fig, ax=ax)
-            ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels(ticks)
+        attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
+        mlp_weight_curr_class = mlp_weights[class_idx, :]
+        attention_curr_class = attention_curr_class * mlp_weight_curr_class[None, :]
+        attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
+            attention_curr_class.max() - attention_curr_class.min())
 
-            if class_idx == 0:
-                ax.set_ylabel('Attention weights scaled by MLP weights', fontsize=16)
+        ax = fig.add_subplot(2, len(class_map.items()), len(class_map.items()) + class_idx + 1)
+        matrix_fig = ax.imshow(attention_curr_class, cmap='coolwarm')
+        ax.set_title(class_name, fontsize=16)
+        cbar = fig.colorbar(matrix_fig, ax=ax)
+        ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        cbar.set_ticks(ticks)
+        cbar.set_ticklabels(ticks)
 
-        fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'attentions.png'))
-        plt.close(fig)
+        if class_idx == 0:
+            ax.set_ylabel('Attention weights scaled by MLP weights', fontsize=16)
+
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_attentions.png'))
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(32, 32))
+    for class_idx, class_name in class_map.items():
+        subject_indices = (y_true_arr == class_idx).flatten()
+
+        attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
+        attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
+            attention_curr_class.max() - attention_curr_class.min())
+
+        feature_importance = attention_curr_class.sum(axis=0)
+        # Sort descendingly.
+        sorted_idx = np.argsort(feature_importance)
+        importance_sorted = feature_importance[sorted_idx]
+        gene_names_sorted = np.array(gene_list)[sorted_idx]
+
+        ax = fig.add_subplot(1, 2 * len(class_map.items()), class_idx + 1)
+        ax.barh(range(len(importance_sorted)), importance_sorted, color='firebrick', alpha=0.5)
+        ax.set_title(class_name, fontsize=24)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_ylim([0, len(gene_names_sorted)])
+        ax.set_yticks(range(len(gene_names_sorted)))
+        ax.set_yticklabels([item.split('_')[1] for item in gene_names_sorted])
+        ax.tick_params(axis='x', which='major', labelsize=18)
+
+        if class_idx == 0:
+            ax.set_ylabel('Attention weights only', fontsize=16)
+
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_importance.png'))
+
+    for class_idx, class_name in class_map.items():
+        subject_indices = (y_true_arr == class_idx).flatten()
+
+        attention_curr_class = feature_attention_arr[subject_indices, ...].mean(axis=0)
+        mlp_weight_curr_class = mlp_weights[class_idx, :]
+        attention_curr_class = attention_curr_class * mlp_weight_curr_class[None, :]
+        attention_curr_class = (attention_curr_class - attention_curr_class.min()) / (
+            attention_curr_class.max() - attention_curr_class.min())
+
+        feature_importance = attention_curr_class.sum(axis=0)
+        # Sort descendingly.
+        sorted_idx = np.argsort(feature_importance)
+        importance_sorted = feature_importance[sorted_idx]
+        gene_names_sorted = np.array(gene_list)[sorted_idx]
+
+        ax = fig.add_subplot(1, 2 * len(class_map.items()), len(class_map.items()) + class_idx + 1)
+        ax.barh(range(len(importance_sorted)), importance_sorted, color='firebrick', alpha=0.5)
+        ax.set_title(class_name, fontsize=24)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_ylim([0, len(gene_names_sorted)])
+        ax.set_yticks(range(len(gene_names_sorted)))
+        ax.set_yticklabels([item.split('_')[1] for item in gene_names_sorted])
+        ax.tick_params(axis='x', which='major', labelsize=18)
+
+        if class_idx == 0:
+            ax.set_ylabel('Attention weights scaled by MLP weights', fontsize=16)
+
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_importance.png'))
+    plt.close(fig)
+
     return
+
+def softmax(x):
+# Subtract max for numerical stability
+  e_x = np.exp(x - np.max(x))
+  return e_x / e_x.sum(axis=-1, keepdims=True)
 
 
 if __name__ == "__main__":

@@ -173,12 +173,12 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Entry point.')
     args.add_argument('--train-val-test-ratio', default='6:2:2', type=str)
     args.add_argument('--trainable-scales', action='store_true')
-    args.add_argument('--k-hop', default=1, type=int)
+    args.add_argument('--k-hop', default=3, type=int)
     args.add_argument('--num-workers', default=8, type=int)
     args.add_argument('--random-seed', default=1, type=int)
     args.add_argument('--dataset', default='placenta', type=str)
-    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified/', type=str)
-    args.add_argument('--num-features', default=18085, type=int)  # number of genes or features
+    args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_selected_genes', type=str)
+    args.add_argument('--num-features', default=212, type=int)  # number of genes or features
 
     args = args.parse_known_args()[0]
     args.batch_size = 1
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         fixed_weights=True,
         layout=['hsm'],
         normalize='right',
-        pooling='mean',
+        pooling='attention',
         scale_list=[0,1,2,4]
     )
     model.eval()
