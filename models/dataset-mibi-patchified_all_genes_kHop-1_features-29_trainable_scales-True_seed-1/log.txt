@@ -1,0 +1,168 @@
+Config:
+train_val_test_ratio: 6:2:2
+max_epochs: 50
+max_training_iters: 64
+max_validation_iters: 64
+batch_size: 128
+desired_batch_size: 256
+learning_rate: 0.001
+trainable_scales: True
+k_hop: 1
+num_workers: 8
+random_seed: 1
+dataset: mibi
+data_folder: /gpfs/radev/project/krishnaswamy_smita/cl2482/Spatial-Hypergraph/data/MIBI/patchified_all_genes/
+num_features: 29
+
+Training History:
+[HypergraphScattering] Training begins.
+Epoch 0/50: Training Loss 1.457, ACC 0.269, macro AUROC 0.506.
+Validation Loss 1.434, ACC 0.267, macro AUROC 0.513.
+Model weights successfully saved.
+Epoch 1/50: Training Loss 1.406, ACC 0.287, macro AUROC 0.525.
+Validation Loss 1.353, ACC 0.303, macro AUROC 0.565.
+Model weights successfully saved.
+Epoch 2/50: Training Loss 1.351, ACC 0.321, macro AUROC 0.606.
+Validation Loss 1.310, ACC 0.330, macro AUROC 0.641.
+Model weights successfully saved.
+Epoch 3/50: Training Loss 1.302, ACC 0.359, macro AUROC 0.670.
+Validation Loss 1.257, ACC 0.385, macro AUROC 0.686.
+Model weights successfully saved.
+Epoch 4/50: Training Loss 1.239, ACC 0.422, macro AUROC 0.715.
+Validation Loss 1.200, ACC 0.418, macro AUROC 0.721.
+Model weights successfully saved.
+Epoch 5/50: Training Loss 1.172, ACC 0.472, macro AUROC 0.745.
+Validation Loss 1.144, ACC 0.461, macro AUROC 0.747.
+Model weights successfully saved.
+Epoch 6/50: Training Loss 1.110, ACC 0.511, macro AUROC 0.769.
+Validation Loss 1.090, ACC 0.494, macro AUROC 0.767.
+Model weights successfully saved.
+Epoch 7/50: Training Loss 1.061, ACC 0.539, macro AUROC 0.786.
+Validation Loss 1.040, ACC 0.534, macro AUROC 0.787.
+Model weights successfully saved.
+Epoch 8/50: Training Loss 1.014, ACC 0.567, macro AUROC 0.806.
+Validation Loss 1.003, ACC 0.556, macro AUROC 0.802.
+Model weights successfully saved.
+Epoch 9/50: Training Loss 0.964, ACC 0.591, macro AUROC 0.825.
+Validation Loss 0.962, ACC 0.585, macro AUROC 0.823.
+Model weights successfully saved.
+Epoch 10/50: Training Loss 0.924, ACC 0.606, macro AUROC 0.842.
+Validation Loss 0.908, ACC 0.610, macro AUROC 0.845.
+Model weights successfully saved.
+Epoch 11/50: Training Loss 0.871, ACC 0.637, macro AUROC 0.862.
+Validation Loss 0.863, ACC 0.633, macro AUROC 0.863.
+Model weights successfully saved.
+Epoch 12/50: Training Loss 0.820, ACC 0.663, macro AUROC 0.881.
+Validation Loss 0.810, ACC 0.665, macro AUROC 0.885.
+Model weights successfully saved.
+Epoch 13/50: Training Loss 0.765, ACC 0.689, macro AUROC 0.898.
+Validation Loss 0.747, ACC 0.697, macro AUROC 0.902.
+Model weights successfully saved.
+Epoch 14/50: Training Loss 0.712, ACC 0.721, macro AUROC 0.914.
+Validation Loss 0.696, ACC 0.722, macro AUROC 0.915.
+Model weights successfully saved.
+Epoch 15/50: Training Loss 0.676, ACC 0.734, macro AUROC 0.922.
+Validation Loss 0.657, ACC 0.745, macro AUROC 0.925.
+Model weights successfully saved.
+Epoch 16/50: Training Loss 0.627, ACC 0.761, macro AUROC 0.934.
+Validation Loss 0.627, ACC 0.765, macro AUROC 0.935.
+Model weights successfully saved.
+Epoch 17/50: Training Loss 0.592, ACC 0.777, macro AUROC 0.942.
+Validation Loss 0.595, ACC 0.776, macro AUROC 0.942.
+Model weights successfully saved.
+Epoch 18/50: Training Loss 0.560, ACC 0.791, macro AUROC 0.948.
+Validation Loss 0.554, ACC 0.791, macro AUROC 0.948.
+Model weights successfully saved.
+Epoch 19/50: Training Loss 0.539, ACC 0.797, macro AUROC 0.952.
+Validation Loss 0.531, ACC 0.796, macro AUROC 0.953.
+Model weights successfully saved.
+Epoch 20/50: Training Loss 0.509, ACC 0.810, macro AUROC 0.958.
+Validation Loss 0.492, ACC 0.826, macro AUROC 0.961.
+Model weights successfully saved.
+Epoch 21/50: Training Loss 0.474, ACC 0.830, macro AUROC 0.964.
+Validation Loss 0.469, ACC 0.833, macro AUROC 0.965.
+Model weights successfully saved.
+Epoch 22/50: Training Loss 0.457, ACC 0.839, macro AUROC 0.967.
+Validation Loss 0.453, ACC 0.833, macro AUROC 0.969.
+Model weights successfully saved.
+Epoch 23/50: Training Loss 0.437, ACC 0.844, macro AUROC 0.970.
+Validation Loss 0.427, ACC 0.850, macro AUROC 0.972.
+Model weights successfully saved.
+Epoch 24/50: Training Loss 0.415, ACC 0.852, macro AUROC 0.973.
+Validation Loss 0.415, ACC 0.853, macro AUROC 0.975.
+Model weights successfully saved.
+Epoch 25/50: Training Loss 0.400, ACC 0.855, macro AUROC 0.975.
+Validation Loss 0.387, ACC 0.865, macro AUROC 0.977.
+Model weights successfully saved.
+Epoch 26/50: Training Loss 0.382, ACC 0.866, macro AUROC 0.978.
+Validation Loss 0.364, ACC 0.877, macro AUROC 0.980.
+Model weights successfully saved.
+Epoch 27/50: Training Loss 0.366, ACC 0.873, macro AUROC 0.980.
+Validation Loss 0.350, ACC 0.882, macro AUROC 0.982.
+Model weights successfully saved.
+Epoch 28/50: Training Loss 0.339, ACC 0.885, macro AUROC 0.983.
+Validation Loss 0.331, ACC 0.888, macro AUROC 0.984.
+Model weights successfully saved.
+Epoch 29/50: Training Loss 0.322, ACC 0.893, macro AUROC 0.985.
+Validation Loss 0.326, ACC 0.894, macro AUROC 0.986.
+Model weights successfully saved.
+Epoch 30/50: Training Loss 0.315, ACC 0.894, macro AUROC 0.985.
+Validation Loss 0.307, ACC 0.897, macro AUROC 0.986.
+Model weights successfully saved.
+Epoch 31/50: Training Loss 0.303, ACC 0.902, macro AUROC 0.987.
+Validation Loss 0.297, ACC 0.900, macro AUROC 0.987.
+Model weights successfully saved.
+Epoch 32/50: Training Loss 0.294, ACC 0.905, macro AUROC 0.988.
+Validation Loss 0.286, ACC 0.902, macro AUROC 0.988.
+Model weights successfully saved.
+Epoch 33/50: Training Loss 0.284, ACC 0.911, macro AUROC 0.988.
+Validation Loss 0.281, ACC 0.908, macro AUROC 0.989.
+Model weights successfully saved.
+Epoch 34/50: Training Loss 0.274, ACC 0.911, macro AUROC 0.989.
+Validation Loss 0.274, ACC 0.912, macro AUROC 0.989.
+Model weights successfully saved.
+Epoch 35/50: Training Loss 0.268, ACC 0.917, macro AUROC 0.990.
+Validation Loss 0.267, ACC 0.908, macro AUROC 0.989.
+Model weights successfully saved.
+Epoch 36/50: Training Loss 0.263, ACC 0.918, macro AUROC 0.990.
+Validation Loss 0.271, ACC 0.901, macro AUROC 0.989.
+Epoch 37/50: Training Loss 0.260, ACC 0.919, macro AUROC 0.990.
+Validation Loss 0.258, ACC 0.914, macro AUROC 0.990.
+Model weights successfully saved.
+Epoch 38/50: Training Loss 0.255, ACC 0.918, macro AUROC 0.991.
+Validation Loss 0.255, ACC 0.913, macro AUROC 0.990.
+Model weights successfully saved.
+Epoch 39/50: Training Loss 0.251, ACC 0.922, macro AUROC 0.991.
+Validation Loss 0.254, ACC 0.917, macro AUROC 0.990.
+Model weights successfully saved.
+Epoch 40/50: Training Loss 0.249, ACC 0.922, macro AUROC 0.991.
+Validation Loss 0.249, ACC 0.919, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 41/50: Training Loss 0.244, ACC 0.924, macro AUROC 0.991.
+Validation Loss 0.250, ACC 0.912, macro AUROC 0.990.
+Epoch 42/50: Training Loss 0.245, ACC 0.924, macro AUROC 0.991.
+Validation Loss 0.248, ACC 0.918, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 43/50: Training Loss 0.242, ACC 0.925, macro AUROC 0.992.
+Validation Loss 0.244, ACC 0.920, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 44/50: Training Loss 0.241, ACC 0.926, macro AUROC 0.992.
+Validation Loss 0.244, ACC 0.920, macro AUROC 0.991.
+Epoch 45/50: Training Loss 0.240, ACC 0.926, macro AUROC 0.992.
+Validation Loss 0.243, ACC 0.919, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 46/50: Training Loss 0.238, ACC 0.927, macro AUROC 0.992.
+Validation Loss 0.243, ACC 0.919, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 47/50: Training Loss 0.239, ACC 0.926, macro AUROC 0.992.
+Validation Loss 0.243, ACC 0.920, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 48/50: Training Loss 0.238, ACC 0.927, macro AUROC 0.992.
+Validation Loss 0.243, ACC 0.921, macro AUROC 0.991.
+Model weights successfully saved.
+Epoch 49/50: Training Loss 0.238, ACC 0.927, macro AUROC 0.992.
+Validation Loss 0.243, ACC 0.920, macro AUROC 0.991.
+Model weights successfully saved.
+
+
+Test Loss 0.254, ACC 0.912, macro AUROC 0.990.
