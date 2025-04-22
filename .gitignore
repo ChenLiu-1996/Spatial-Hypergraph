@@ -10,6 +10,8 @@ data
 **/*.pth
 **/*.pth.tar
 
+models/
+
 # Data
 **/*.npy
 **/*.npz
