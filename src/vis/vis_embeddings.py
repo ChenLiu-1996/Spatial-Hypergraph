@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import math
 import meld
 import phate
 import scprep
@@ -84,6 +85,10 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyp
 
         embedding_arr, label_arr, gene_expression_arr = embedding_label_expression
 
+        if entity_name == 'hyperedge':
+            gene_name_list = [item.split('_')[1] for item in gene_list]
+            plot_histogram_for_genes(gene_name_list, gene_expression_arr, ['FGF2', 'FGFR1', 'FN1', 'KRT8'])
+
         # Subsample the hyperedges, otherwise it gives OOM.
         if entity_name == 'hyperedge' and len(embedding_arr) > 1e6 and hyperedge_sampling_rate is not None:
             sampled_indices = np.random.choice(len(embedding_arr), size=int(hyperedge_sampling_rate * len(embedding_arr)))
@@ -133,39 +138,81 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyp
                 s=5,
                 alpha=0.5)
         fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_embeddings.png'))
+        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_embeddings.png'), dpi=300)
         plt.close(fig)
 
-        fig = plt.figure(figsize=(24, 24))
-        # Assuming total of 64 genes.
-        for gene_idx, gene_identifier in enumerate(gene_list):
-            gene_name = gene_identifier.split('_')[1]
+        # Auto-determine layout (rows x cols) to be roughly square
+        num_plots = len(gene_list)
+        gene_name_list = [item.split('_')[1] for item in gene_list]
+        idx_sorted = np.argsort(gene_name_list)
+        gene_indices_sorted = np.arange(len(gene_name_list))[idx_sorted]
+        gene_name_list_sorted = np.array(gene_name_list)[idx_sorted]
 
-            gene_expression = gene_expression_arr[:, gene_idx][:, None]
-            # meld_op = meld.MELD(random_state=args.random_seed, n_jobs=args.num_workers, verbose=True)
-            # sample_densities = meld_op.fit_transform(normalize(embedding_arr, axis=1), sample_labels=label_arr)
-            # sample_likelihoods = meld.utils.normalize_densities(sample_densities)
+        chunk_size = 25  # At most 25 subplots per figure.
+        indices_by_chunk = [np.arange(num_plots)[i:i + chunk_size] for i in range(0, num_plots, chunk_size)]
 
-            ax = fig.add_subplot(8, 8, gene_idx + 1)
-            scprep.plot.scatter2d(
-                data_phate,
-                c=gene_expression,
-                cmap='coolwarm',
-                ax=ax,
-                title=gene_name,
-                xticks=False,
-                yticks=False,
-                label_prefix='PHATE',
-                colorbar=False,
-                fontsize=16,
-                s=5,
-                alpha=0.25)
-            ax.set_axis_off()
+        for chunk_idx, indices in enumerate(indices_by_chunk):
+            num_subplots = len(indices)
+            cols = math.ceil(math.sqrt(num_subplots))
+            rows = math.ceil(num_subplots / cols)
+            fig = plt.figure(figsize=(cols * 5, rows * 4))
 
-        fig.tight_layout(pad=2)
-        fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + '_gene_expressions.png'))
-        plt.close(fig)
+            gene_indices_chunk = gene_indices_sorted[indices]
+            gene_name_list_chunk = gene_name_list_sorted[indices]
 
+            for subplot_idx, (gene_idx, gene_name) in enumerate(zip(gene_indices_chunk, gene_name_list_chunk)):
+
+                gene_expression = gene_expression_arr[:, gene_idx][:, None]
+
+                ax = fig.add_subplot(rows, cols, subplot_idx + 1)
+
+                vmax = np.percentile(gene_expression, 90)
+                if vmax == 0:
+                    vmax = np.max(gene_expression)
+
+                scprep.plot.scatter2d(
+                    data_phate,
+                    c=gene_expression,
+                    cmap='coolwarm',
+                    vmin=0,
+                    vmax=vmax,
+                    ax=ax,
+                    title=gene_name,
+                    xticks=False,
+                    yticks=False,
+                    label_prefix='PHATE',
+                    colorbar=True,
+                    fontsize=16,
+                    s=5,
+                    alpha=0.25)
+                ax.set_axis_off()
+
+            fig.tight_layout(pad=2)
+            fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + f'_gene_expressions_{str(chunk_idx).zfill(3)}.png'), dpi=100)
+            plt.close(fig)
+
+    return
+
+def plot_histogram_for_genes(gene_name_list, gene_expression_arr, gene_names_to_plot) -> None:
+    num_subplots = len(gene_names_to_plot)
+    cols = math.ceil(math.sqrt(num_subplots))
+    rows = math.ceil(num_subplots / cols)
+    fig = plt.figure(figsize=(cols * 5, rows * 4))
+
+    for subplot_idx, gene_name in enumerate(gene_names_to_plot):
+        gene_index = np.argwhere(np.array(gene_name_list) == gene_name).item()
+        gene_expression = gene_expression_arr[:, gene_index]
+
+        ax = fig.add_subplot(rows, cols, subplot_idx + 1)
+        ax.hist(gene_expression, bins=256, color='#00356B')
+        ax.set_yscale('log')  # Apply log scale to the y-axis
+        ax.set_title(gene_name)
+        ax.set_ylabel('Count')
+        ax.set_xlabel('Expression')
+
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), f'gene_expressions_histogram.png'), dpi=100)
+    plt.close(fig)
     return
 
 
