@@ -1,3 +1,4 @@
+from typing import List
 import logging
 import os
 import anndata as ad
@@ -12,6 +13,7 @@ from torch_geometric.utils import from_networkx
 from torch_geometric.data.hypergraph_data import HyperGraphData
 from sklearn.neighbors import kneighbors_graph
 from dhg import Graph, Hypergraph
+from natsort import natsorted
 
 logging.getLogger('pysmiles').setLevel(logging.CRITICAL)
 
@@ -27,8 +29,9 @@ class MIBIDataset(Dataset):
         - PR
         - CR
 
-    Returned `graph_data`: a torch_geometric.data.Data instance, where
-                           graph_data.x is the node features.
+    NOTE: Since we want to perform data split at the subject level,
+    here we use 2 separate classes, MIBIDataset and MIBISubset.
+    We will have one MIBISubset instance per split (train/val/test).
     '''
 
     def __init__(self,
@@ -41,8 +44,7 @@ class MIBIDataset(Dataset):
         self.transform = transform
 
     def _load_data(self, data_folder: str) -> None:
-        graph_path_list = sorted(glob(os.path.join(data_folder, '*.h5ad')))
-        class_list = []
+        graph_path_list = natsorted(glob(os.path.join(data_folder, '*.h5ad')))
         self.class_map = {
             0: 'PD',
             1: 'SD',
@@ -51,41 +53,79 @@ class MIBIDataset(Dataset):
         }
         self.num_classes = 4
 
+        unique_subject_ids = []
         for graph_path in graph_path_list:
+            subject_id = os.path.basename(graph_path).split('-')[0]
+            assert subject_id[:8] == 'patient_'
+            unique_subject_ids.append(subject_id)
+        unique_subject_ids = natsorted(np.unique(unique_subject_ids))
+
+        self.graph_path_by_subject = [[] for _ in range(len(unique_subject_ids))]
+        self.class_by_subject = [[] for _ in range(len(unique_subject_ids))]
+        for graph_path in graph_path_list:
+            subject_id = os.path.basename(graph_path).split('-')[0]
+            assert subject_id[:8] == 'patient_'
             graph_str = os.path.basename(graph_path)
             if 'responseM_PD' in graph_str:
-                class_list.append(0)
+                graph_class = 0
             elif 'responseM_SD' in graph_str:
-                class_list.append(1)
+                graph_class = 1
             elif 'responseM_PR' in graph_str:
-                class_list.append(2)
+                graph_class = 2
             elif 'responseM_CR' in graph_str:
-                class_list.append(3)
+                graph_class = 3
             else:
                 raise ValueError(f'`graph_str` must contain responseM_`PD`, `SD`, `PR` or `CR`, but got {graph_str}.')
+            subject_id_idx = np.argwhere(np.array(unique_subject_ids) == subject_id).item()
+            self.graph_path_by_subject[subject_id_idx].append(graph_path)
+            self.class_by_subject[subject_id_idx].append(graph_class)
 
-        assert len(graph_path_list) == len(class_list)
-
-        self.graph_path_arr = np.array(graph_path_list)
-        self.class_arr = np.array(class_list)
         return
+
+    def __len__(self) -> int:
+        return len(self.graph_path_by_subject)
+
+    def __getitem__(self, idx: int) -> Data:
+        raise NotImplementedError()
+
+
+class MIBISubset(MIBIDataset):
+    '''
+    MIBI SubSet.
+
+    NOTE: Since we want to perform data split at the subject level,
+    here we use 2 separate classes, MIBIDataset and MIBISubset.
+    We will have one MIBISubset instance per split (train/val/test).
+    '''
+
+    def __init__(self,
+                 main_dataset: MIBIDataset = None,
+                 subset_indices: List[int] = None):
+
+        super().__init__()
+        self.k_hop = main_dataset.k_hop
+        self.transform = main_dataset.transform
+        graph_path_by_subject = [
+            main_dataset.graph_path_by_subject[i] for i in subset_indices
+        ]
+        class_by_subject = [
+            main_dataset.class_by_subject[i] for i in subset_indices
+        ]
+
+        self.graph_path_arr = np.array([item for sublist in graph_path_by_subject for item in sublist])
+        self.class_arr = np.array([item for sublist in class_by_subject for item in sublist])
+        assert len(self.graph_path_arr) == len(self.class_arr)
 
     def __len__(self) -> int:
         return len(self.graph_path_arr)
 
     def __getitem__(self, idx: int) -> Data:
-        adata = ad.read_h5ad(self.graph_path_arr[idx])
-        graph_data = return_graph_data(adata)
-        y_true = self.class_arr[idx]
-        graph_data.y = y_true
+        raise NotImplementedError()
 
-        if self.transform:
-            graph_data = self.transform(graph_data)
-        return graph_data
 
-class MIBIDatasetHypergraph(MIBIDataset):
+class MIBISubsetHypergraph(MIBISubset):
     '''
-    MIBI Dataset in Hypergraph format.
+    MIBI Subset in Hypergraph format.
     Spatial RNA-seq data from MIBI.
 
     Returned `graph_data`: a torch_geometric.data.Data instance, where

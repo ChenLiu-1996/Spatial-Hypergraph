@@ -12,12 +12,12 @@ import_dir = '/'.join(os.path.realpath(__file__).split('/')[:-2])
 sys.path.insert(0, import_dir + '/src/utils/')
 from seed import seed_everything
 from log_utils import log
-from data_utils import split_dataset
+from data_utils import split_dataset, split_indices
 from scheduler import LinearWarmupCosineAnnealingLR
 
 sys.path.insert(0, import_dir + '/src/dataset/')
 from placenta import PlacentaDatasetHypergraph
-from mibi import MIBIDatasetHypergraph
+from mibi import MIBIDataset, MIBISubsetHypergraph
 from extend import ExtendedDataset
 
 
@@ -27,17 +27,34 @@ ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-2])
 def prepare_dataloaders(args):
     if args.dataset == 'placenta':
         dataset = PlacentaDatasetHypergraph(data_folder=args.data_folder, k_hop=args.k_hop)
+
+        # Train/val/test split
+        ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
+        ratios = tuple([c / sum(ratios) for c in ratios])
+
+        train_set, val_set, test_set = split_dataset(
+            dataset=dataset,
+            splits=ratios,
+            random_seed=0)  # Fix the dataset.
+
     elif args.dataset == 'mibi':
-        dataset = MIBIDatasetHypergraph(data_folder=args.data_folder, k_hop=args.k_hop)
+        dataset = MIBIDataset(data_folder=args.data_folder, k_hop=args.k_hop)
 
-    # Train/val/test split
-    ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
-    ratios = tuple([c / sum(ratios) for c in ratios])
+        ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
+        ratios = tuple([c / sum(ratios) for c in ratios])
+        indices = list(range(len(dataset)))
+        train_indices, val_indices, test_indices = \
+            split_indices(indices=indices, splits=ratios, random_seed=0)
 
-    train_set, val_set, test_set = split_dataset(
-        dataset=dataset,
-        splits=ratios,
-        random_seed=0)  # Fix the dataset.
+        train_set = MIBISubsetHypergraph(
+            main_dataset=dataset,
+            subset_indices=train_indices)
+        val_set = MIBISubsetHypergraph(
+            main_dataset=dataset,
+            subset_indices=val_indices)
+        test_set = MIBISubsetHypergraph(
+            main_dataset=dataset,
+            subset_indices=test_indices)
 
     min_batch_per_epoch = 5
     desired_len = args.batch_size * min_batch_per_epoch
@@ -47,7 +64,7 @@ def prepare_dataloaders(args):
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
-    return train_loader, val_loader, test_loader, dataset
+    return train_loader, val_loader, test_loader, dataset.num_classes
 
 def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter):
     train_loss = 0
@@ -186,12 +203,12 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the data.
-    train_loader, val_loader, test_loader, dataset = prepare_dataloaders(args)
+    train_loader, val_loader, test_loader, num_classes = prepare_dataloaders(args)
 
     model = HypergraphScatteringNet(
         in_channels=64,
         hidden_channels=16,
-        out_channels=dataset.num_classes,
+        out_channels=num_classes,
         num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
