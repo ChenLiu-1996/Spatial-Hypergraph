@@ -43,8 +43,19 @@ def prepare_dataloaders(args):
         ratios = [float(c) for c in args.train_val_test_ratio.split(':')]
         ratios = tuple([c / sum(ratios) for c in ratios])
         indices = list(range(len(dataset)))
+
+        # NOTE: This is a hack to make sure all sets have all classes.
+        all_class_subset1 = [0, 1, 4, 6]
+        all_class_subset2 = [7, 8, 10, 11]
+        all_class_subset3 = [12, 13, 14, 15]
+        indices = list(set(indices) - set(all_class_subset1 + all_class_subset2 + all_class_subset3))
+        adjusted_ratios = len(dataset) * np.array(ratios) - np.array([4, 4, 4])
+        adjusted_ratios = tuple([c / sum(adjusted_ratios) for c in adjusted_ratios])
         train_indices, val_indices, test_indices = \
-            split_indices(indices=indices, splits=ratios, random_seed=0)
+            split_indices(indices=indices, splits=adjusted_ratios, random_seed=0)
+        train_indices += all_class_subset1
+        val_indices += all_class_subset2
+        test_indices += all_class_subset3
 
         train_set = MIBISubsetHypergraph(
             main_dataset=dataset,
