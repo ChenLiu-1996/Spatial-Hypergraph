@@ -58,13 +58,13 @@ def prepare_dataloaders(args):
         test_indices += all_class_subset3
 
         train_set = MIBISubsetHypergraph(
-            main_dataset=dataset,
+            dataset=dataset,
             subset_indices=train_indices)
         val_set = MIBISubsetHypergraph(
-            main_dataset=dataset,
+            dataset=dataset,
             subset_indices=val_indices)
         test_set = MIBISubsetHypergraph(
-            main_dataset=dataset,
+            dataset=dataset,
             subset_indices=test_indices)
 
     min_batch_per_epoch = 5

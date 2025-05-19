@@ -86,8 +86,11 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyp
         embedding_arr, label_arr, gene_expression_arr = embedding_label_expression
 
         if entity_name == 'hyperedge':
-            gene_name_list = [item.split('_')[1] for item in gene_list]
-            plot_histogram_for_genes(gene_name_list, gene_expression_arr, ['FGF2', 'FGFR1', 'FN1', 'KRT8'])
+            if args.dataset == 'placenta':
+                gene_name_list = [item.split('_')[1] for item in gene_list]
+                plot_histogram_for_genes(gene_name_list, gene_expression_arr, ['FGF2', 'FGFR1', 'FN1', 'KRT8'])
+            else:
+                gene_name_list = gene_list
 
         # Subsample the hyperedges, otherwise it gives OOM.
         if entity_name == 'hyperedge' and len(embedding_arr) > 1e6 and hyperedge_sampling_rate is not None:
@@ -143,7 +146,10 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyp
 
         # Auto-determine layout (rows x cols) to be roughly square
         num_plots = len(gene_list)
-        gene_name_list = [item.split('_')[1] for item in gene_list]
+        if args.dataset == 'placenta':
+            gene_name_list = [item.split('_')[1] for item in gene_list]
+        else:
+            gene_name_list = gene_list
         idx_sorted = np.argsort(gene_name_list)
         gene_indices_sorted = np.arange(len(gene_name_list))[idx_sorted]
         gene_name_list_sorted = np.array(gene_name_list)[idx_sorted]
@@ -237,12 +243,14 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the data.
-    train_loader, val_loader, test_loader, dataset = prepare_dataloaders(args)
+    train_loader, val_loader, test_loader, num_classes = prepare_dataloaders(args)
+    class_map = test_loader.dataset.dataset.class_map
+    gene_list = test_loader.dataset.dataset.gene_list
 
     model = HypergraphScatteringNet(
         in_channels=64,
         hidden_channels=16,
-        out_channels=dataset.num_classes,
+        out_channels=num_classes,
         num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
@@ -267,5 +275,4 @@ if __name__ == "__main__":
     if not os.path.isfile(embedding_save_path):
         save_test_set_embeddings(model, test_loader, device, embedding_save_path)
 
-    class_map = test_loader.dataset.dataset.class_map
-    visualize_test_set_embeddings(embedding_save_path, class_map, gene_list=dataset.gene_list)
+    visualize_test_set_embeddings(embedding_save_path, class_map, gene_list=gene_list)

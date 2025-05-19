@@ -11,7 +11,7 @@ folder_in = '../../data/MIBI/raw/'
 folder_out = '../../data/MIBI/patchified_all_genes/'
 MIN_CELL_PER_GRAPH = 20
 BIN_SIZE_RATIO = 0.25
-TARGET_NUM_SUBGRAPHS = 64
+TARGET_NUM_SUBGRAPHS = 128
 
 
 if __name__ == '__main__':

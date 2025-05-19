@@ -42,6 +42,7 @@ class MIBIDataset(Dataset):
         self._load_data(data_folder)
         self.k_hop = k_hop
         self.transform = transform
+        self.gene_list = self._read_gene_list()
 
     def _load_data(self, data_folder: str) -> None:
         graph_path_list = natsorted(glob(os.path.join(data_folder, '*.h5ad')))
@@ -80,7 +81,12 @@ class MIBIDataset(Dataset):
             self.graph_path_by_subject[subject_id_idx].append(graph_path)
             self.class_by_subject[subject_id_idx].append(graph_class)
 
+        self.graph_path_arr = np.array(graph_path_list)  # Only for `_read_gene_list` purpose.
         return
+
+    def _read_gene_list(self) -> List:
+        adata = ad.read_h5ad(self.graph_path_arr[0])
+        return adata.var.to_numpy().flatten().tolist()
 
     def __len__(self) -> int:
         return len(self.graph_path_by_subject)
@@ -99,17 +105,18 @@ class MIBISubset(MIBIDataset):
     '''
 
     def __init__(self,
-                 main_dataset: MIBIDataset = None,
+                 dataset: MIBIDataset = None,
                  subset_indices: List[int] = None):
 
         super().__init__()
-        self.k_hop = main_dataset.k_hop
-        self.transform = main_dataset.transform
+        self.dataset = dataset
+        self.k_hop = dataset.k_hop
+        self.transform = dataset.transform
         graph_path_by_subject = [
-            main_dataset.graph_path_by_subject[i] for i in subset_indices
+            dataset.graph_path_by_subject[i] for i in subset_indices
         ]
         class_by_subject = [
-            main_dataset.class_by_subject[i] for i in subset_indices
+            dataset.class_by_subject[i] for i in subset_indices
         ]
 
         self.graph_path_arr = np.array([item for sublist in graph_path_by_subject for item in sublist])
