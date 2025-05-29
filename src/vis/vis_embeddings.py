@@ -197,6 +197,48 @@ def visualize_test_set_embeddings(embedding_save_path, class_map, gene_list, hyp
             fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + f'_gene_expressions_{str(chunk_idx).zfill(3)}.png'), dpi=100)
             plt.close(fig)
 
+        if args.dataset == 'placenta':
+            selected_genes = ['ACTA2', 'CNN1', 'TAGLN', 'ZEB1']
+            num_subplots = len(selected_genes)
+            cols = math.ceil(math.sqrt(num_subplots))
+            rows = math.ceil(num_subplots / cols)
+            fig = plt.figure(figsize=(cols * 5, rows * 4))
+
+            indices = np.array([np.argwhere(gene_name_list_sorted == gene).item() for gene in selected_genes])
+            gene_indices_chunk = gene_indices_sorted[indices]
+            gene_name_list_chunk = gene_name_list_sorted[indices]
+
+            for subplot_idx, (gene_idx, gene_name) in enumerate(zip(gene_indices_chunk, gene_name_list_chunk)):
+
+                gene_expression = gene_expression_arr[:, gene_idx][:, None]
+
+                ax = fig.add_subplot(rows, cols, subplot_idx + 1)
+
+                vmax = np.percentile(gene_expression, 90)
+                if vmax == 0:
+                    vmax = np.max(gene_expression)
+
+                scprep.plot.scatter2d(
+                    data_phate,
+                    c=gene_expression,
+                    cmap='coolwarm',
+                    vmin=0,
+                    vmax=vmax,
+                    ax=ax,
+                    title=gene_name,
+                    xticks=False,
+                    yticks=False,
+                    label_prefix='PHATE',
+                    colorbar=True,
+                    fontsize=16,
+                    s=5,
+                    alpha=0.25)
+                ax.set_axis_off()
+
+            fig.tight_layout(pad=2)
+            fig.savefig(os.path.join(os.path.dirname(embedding_save_path), entity_name + f'_gene_expressions_selected.png'), dpi=400)
+            plt.close(fig)
+
     return
 
 def plot_histogram_for_genes(gene_name_list, gene_expression_arr, gene_names_to_plot) -> None:
