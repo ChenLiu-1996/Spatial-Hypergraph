@@ -35,7 +35,7 @@ class MIBIDataset(Dataset):
     '''
 
     def __init__(self,
-                 data_folder: str = '../../data/MIBI/all_genes',
+                 data_folder: str = '../../data/MIBI/patchified_all_genes/',
                  k_hop: int = 3,
                  transform=None):
 
@@ -144,6 +144,8 @@ class MIBISubsetHypergraph(MIBISubset):
         graph_data = return_graph_data(adata)
         y_true = self.class_arr[idx]
         graph_data.y = y_true
+
+        import pdb; pdb.set_trace()
 
         if self.transform:
             graph_data = self.transform(graph_data)

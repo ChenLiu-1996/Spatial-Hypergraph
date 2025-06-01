@@ -140,11 +140,13 @@ if __name__ == '__main__':
         full_matrix = matrix.X.T[barcode_position_valid, :]
 
         # NOTE: Add cell type scores (float numbers).
+        gene_exp_mean = final_matrix.mean()
         for cell_type, genes in GENES_BY_CELL_TYPE.items():
             tmp_adata = ad.AnnData(X=full_matrix, var=pd.DataFrame(index=features[0]))
             sc.tl.score_genes(tmp_adata, gene_list=celltype_related_features[0].to_numpy(), ctrl_as_ref=False, score_name=f'{cell_type}_score')
             new_feature = tmp_adata.obs[f'{cell_type}_score'].to_numpy().astype(np.float32)
             new_feature = new_feature - new_feature.min()  # Some values might be negative. Shift to 0.
+            new_feature = new_feature * (gene_exp_mean / new_feature.mean())  # Rescale to other gene expression levels.
             new_feature_sparse = sparse.csc_matrix(new_feature).T
             final_matrix = sparse.hstack([final_matrix, new_feature_sparse], format='csc')
             joined_features.append(f'CellTypeScore_{cell_type}')
