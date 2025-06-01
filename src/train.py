@@ -95,8 +95,6 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter, num_c
             hyperedge_attr=data_item.edge_attr,
             batch=data_item.batch)
 
-        import pdb; pdb.set_trace()
-
         loss = loss_fn(y_pred, y_true)
 
         loss_ = loss / batch_per_backprop

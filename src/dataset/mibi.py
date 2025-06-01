@@ -145,8 +145,6 @@ class MIBISubsetHypergraph(MIBISubset):
         y_true = self.class_arr[idx]
         graph_data.y = y_true
 
-        import pdb; pdb.set_trace()
-
         if self.transform:
             graph_data = self.transform(graph_data)
 
