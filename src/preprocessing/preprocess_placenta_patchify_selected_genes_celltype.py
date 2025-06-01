@@ -139,6 +139,12 @@ if __name__ == '__main__':
         celltype_related_matrix = celltype_related_matrix[barcode_position_valid, :]
         full_matrix = matrix.X.T[barcode_position_valid, :]
 
+        # Normalize the gene expression for each cell.
+        adata = ad.AnnData(X=final_matrix, var=pd.DataFrame(index=features))
+        sc.pp.normalize_total(adata, target_sum=1e6)
+        sc.pp.log1p(adata)
+        final_matrix = adata.X
+
         # NOTE: Add cell type scores (float numbers).
         gene_exp_mean = final_matrix.mean()
         for cell_type, genes in GENES_BY_CELL_TYPE.items():

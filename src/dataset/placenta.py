@@ -155,10 +155,6 @@ def get_hyperedge_index(hypergraph):
     return hyperedge_index
 
 def return_graph_data(adata):
-    # Normalize the gene expression for each pixel.
-    sc.pp.normalize_total(adata, target_sum=1e6)
-    sc.pp.log1p(adata)
-
     # Create the graph.
     G = create_knn_graph(adata)
 

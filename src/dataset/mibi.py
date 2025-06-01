@@ -95,7 +95,7 @@ class MIBIDataset(Dataset):
         raise NotImplementedError()
 
 
-class MIBISubset(MIBIDataset):
+class MIBISubset(Dataset):
     '''
     MIBI SubSet.
 
@@ -193,10 +193,6 @@ def get_hyperedge_index(hypergraph):
     return hyperedge_index
 
 def return_graph_data(adata):
-    # Normalize the gene expression for each cell.
-    sc.pp.normalize_total(adata, target_sum=1e6)
-    sc.pp.log1p(adata)
-
     # Create the graph.
     G = create_knn_graph(adata)
 
@@ -214,3 +210,8 @@ def create_knn_graph(adata, K: int = 10):
 
 if __name__ == '__main__':
     dataset = MIBIDataset()
+    train_indices = [0, 1, 4, 6]
+    train_set = MIBISubsetHypergraph(
+        dataset=dataset,
+        subset_indices=train_indices)
+    train_set[0]

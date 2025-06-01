@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import anndata as ad
 from tqdm import tqdm
+import scanpy as sc
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -88,7 +89,6 @@ if __name__ == '__main__':
         selected_feature_indices = features[1].isin(selected_genes).to_numpy()
         features = features[selected_feature_indices]
         joined_features = [f"{f0}_{f1}" for f0, f1 in zip(features[0], features[1])]
-        del features
 
         barcodes['barcode'] = barcodes[0]
         barcodes = barcodes.drop(0, axis=1)
@@ -133,6 +133,12 @@ if __name__ == '__main__':
         barcode_position['pixel_row_in_highres'] = np.floor(barcode_position['pixel_row_in_highres']).astype(int)
         barcode_position['pixel_col_in_highres'] = np.floor(barcode_position['pixel_col_in_highres']).astype(int)
         final_matrix = final_matrix[barcode_position_valid, :]
+
+        # Normalize the gene expression for each cell.
+        adata = ad.AnnData(X=final_matrix, var=pd.DataFrame(index=features))
+        sc.pp.normalize_total(adata, target_sum=1e6)
+        sc.pp.log1p(adata)
+        final_matrix = adata.X
 
         # Subset the data by spatial location.
         cell_bins = pd.DataFrame({'pixel_row_bin': pd.cut(barcode_position['pixel_row_in_highres'], bins=NUM_BINS, labels=False, include_lowest=True),

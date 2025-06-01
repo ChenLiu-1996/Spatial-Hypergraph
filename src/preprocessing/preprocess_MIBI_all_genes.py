@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import anndata as ad
 from tqdm import tqdm
+import scanpy as sc
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -38,6 +39,17 @@ if __name__ == '__main__':
         features = cell_by_protein.columns.values.tolist()
         for key in ['id', 'unique_id', 'label', 'area', 'x_centroid', 'y_centroid']:
             features.remove(key)
+
+        # Normalize the gene expression for each cell.
+        data_matrix = cell_by_protein.copy()
+        data_matrix = data_matrix.drop(columns=['id', 'unique_id', 'label', 'area', 'x_centroid', 'y_centroid'])
+        adata = ad.AnnData(X=data_matrix, var=pd.DataFrame(index=features))
+        sc.pp.normalize_total(adata, target_sum=1e6)
+        sc.pp.log1p(adata)
+        # Fill it back to `cell_by_protein`.
+        for key in features:
+            col_idx = np.argwhere(data_matrix.keys() == key).item()
+            cell_by_protein[key] = adata.X[:, col_idx]
 
         # Construct `matrix`.
         matrix = cell_by_protein.copy()
