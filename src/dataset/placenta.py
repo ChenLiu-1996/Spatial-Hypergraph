@@ -161,6 +161,7 @@ def return_graph_data(adata):
     # NetworkX to PyG.
     data = from_networkx(G)
     data.x = torch.tensor(adata.X.todense(), dtype=torch.float)
+    data.coords = adata.obsm['spatial']
     return data
 
 def create_knn_graph(adata, K: int = 10):

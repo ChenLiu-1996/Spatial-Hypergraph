@@ -118,7 +118,7 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device, max_iter, num_c
 
     train_loss /= min(max_iter, len(train_loader))
     accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
-    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro', labels=np.arange(num_classes))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovr', average='weighted', labels=np.arange(num_classes))
     return model, train_loss, accuracy, auroc
 
 @torch.no_grad()
@@ -152,7 +152,7 @@ def val_epoch(model, val_loader, loss_fn, device, max_iter, num_classes):
 
     val_loss /= min(max_iter, len(val_loader))
     accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
-    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro', labels=np.arange(num_classes))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovr', average='weighted', labels=np.arange(num_classes))
     return model, val_loss, accuracy, auroc
 
 @torch.no_grad()
@@ -184,7 +184,7 @@ def test_model(model, test_loader, loss_fn, device, num_classes):
 
     test_loss /= len(test_loader)
     accuracy = accuracy_score(y_true_arr, np.argmax(y_pred_arr, axis=1))
-    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovo', average='macro', labels=np.arange(num_classes))
+    auroc = roc_auc_score(y_true_arr, y_pred_arr, multi_class='ovr', average='weighted', labels=np.arange(num_classes))
     return model, test_loss, accuracy, auroc
 
 
@@ -256,26 +256,26 @@ if __name__ == "__main__":
     log(config_str, filepath=log_file, to_console=True)
 
     log(f'[HypergraphScattering] Training begins.', filepath=log_file)
-    best_val_auroc = 0
+    best_val_acc = 0
     for epoch_idx in tqdm(range(args.max_epochs)):
         model.train()
         model, train_loss, train_accuracy, train_auroc = train_epoch(model, train_loader, optimizer, loss_fn, device, args.max_training_iters, num_classes)
         scheduler.step()
-        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: (LR={optimizer.param_groups[0]['lr']}) Training Loss {train_loss:.3f}, ACC {train_accuracy:.3f}, macro AUROC {train_auroc:.3f}.',
+        log(f'Epoch {epoch_idx + 1}/{args.max_epochs}: (LR={optimizer.param_groups[0]['lr']}) Training Loss {train_loss:.3f}, ACC {train_accuracy:.3f}, Weighted AUROC {train_auroc:.3f}.',
             filepath=log_file)
 
         model.eval()
         model, val_loss, val_accuracy, val_auroc = val_epoch(model, val_loader, loss_fn, device, args.max_validation_iters, num_classes)
-        log(f'Validation Loss {val_loss:.3f}, ACC {val_accuracy:.3f}, macro AUROC {val_auroc:.3f}.',
+        log(f'Validation Loss {val_loss:.3f}, ACC {val_accuracy:.3f}, Weighted AUROC {val_auroc:.3f}.',
             filepath=log_file)
 
-        if val_auroc > best_val_auroc:
-            best_val_auroc = val_auroc
+        if val_accuracy > best_val_acc:
+            best_val_acc = val_accuracy
             torch.save(model.state_dict(), model_save_path)
             log('Model weights successfully saved.', filepath=log_file)
 
     model.eval()
     model.load_state_dict(torch.load(model_save_path, map_location=device, weights_only=True))
     model, test_loss, test_accuracy, test_auroc = test_model(model, test_loader, loss_fn, device, num_classes)
-    log(f'\n\nTest Loss {test_loss:.3f}, ACC {test_accuracy:.3f}, macro AUROC {test_auroc:.3f}.',
+    log(f'\n\nTest Loss {test_loss:.3f}, ACC {test_accuracy:.3f}, Weighted AUROC {test_auroc:.3f}.',
         filepath=log_file)

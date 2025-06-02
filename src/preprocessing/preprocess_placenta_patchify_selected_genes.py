@@ -87,8 +87,8 @@ if __name__ == '__main__':
         features = pd.read_csv(os.path.join(source_mat_folder, 'features.tsv'), header=None, sep="\t")
         # Only take the selected genes.
         selected_feature_indices = features[1].isin(selected_genes).to_numpy()
-        features = features[selected_feature_indices]
-        joined_features = [f"{f0}_{f1}" for f0, f1 in zip(features[0], features[1])]
+        selected_features = features[selected_feature_indices]
+        joined_features = [f"{f0}_{f1}" for f0, f1 in zip(selected_features[0], selected_features[1])]
 
         barcodes['barcode'] = barcodes[0]
         barcodes = barcodes.drop(0, axis=1)
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         final_matrix = final_matrix[barcode_position_valid, :]
 
         # Normalize the gene expression for each cell.
-        adata = ad.AnnData(X=final_matrix, var=pd.DataFrame(index=features))
+        adata = ad.AnnData(X=final_matrix, var=pd.DataFrame(index=selected_features))
         sc.pp.normalize_total(adata, target_sum=1e6)
         sc.pp.log1p(adata)
         final_matrix = adata.X

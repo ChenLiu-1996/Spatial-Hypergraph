@@ -1,14 +1,10 @@
 import argparse
 import os
 import sys
-import meld
-import phate
-import scprep
 import numpy as np
 from tqdm import tqdm
 import torch
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import normalize
 
 import_dir = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 sys.path.insert(0, import_dir + '/src/utils/')
@@ -23,7 +19,7 @@ ROOT_DIR = '/'.join(os.path.realpath(__file__).split('/')[:-3])
 
 @torch.no_grad()
 def save_test_set_attentions(model, test_loader, device, attention_save_path):
-    niche_attention_list = []
+    niche_attention_list, coords_list = [], []
     feature_attention_arr, y_true_arr, y_pred_arr = None, None, None
 
     # Aggregate the MLP weights.
@@ -53,14 +49,18 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
         feature_attn = feature_attn.cpu().detach().numpy().astype(np.float16)
         y_true = y_true.cpu().detach().numpy().reshape(1, 1)
         y_pred = y_pred.cpu().detach().numpy().reshape(1, -1)
+        assert len(data_item.coords) == 1
+        coords = data_item.coords[0]
 
         if feature_attention_arr is None:
             niche_attention_list = [niche_attn]
+            coords_list = [coords]
             feature_attention_arr = feature_attn
             y_true_arr = y_true
             y_pred_arr = y_pred
         else:
             niche_attention_list.append(niche_attn)
+            coords_list.append(coords)
             feature_attention_arr = np.concatenate((feature_attention_arr, feature_attn), axis=0)
             y_true_arr = np.concatenate((y_true_arr, y_true), axis=0)
             y_pred_arr = np.concatenate((y_pred_arr, y_pred), axis=0)
@@ -68,6 +68,7 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
     with open(attention_save_path, 'wb+') as f:
         np.savez(f,
                  niche_attention_arr=np.array(niche_attention_list, dtype=object),
+                 coords_arr=np.array(coords_list, dtype=object),
                  feature_attention_arr=feature_attention_arr,
                  y_true_arr=y_true_arr,
                  y_pred_arr=y_pred_arr,
@@ -75,18 +76,11 @@ def save_test_set_attentions(model, test_loader, device, attention_save_path):
     return
 
 
-def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
+def visualize_test_set_feature_attention(embedding_save_path, gene_list, class_map):
     npzfile = np.load(embedding_save_path, allow_pickle=True)
-    niche_attention_arr = npzfile['niche_attention_arr']
     feature_attention_arr = npzfile['feature_attention_arr']
     y_true_arr = npzfile['y_true_arr']
-    y_pred_arr = npzfile['y_pred_arr']
     mlp_weights = npzfile['mlp_weights']
-
-    # Softmax over classes.
-    y_pred_arr = softmax(y_pred_arr)
-    confidence_arr = y_pred_arr.max(axis=1).reshape(-1, 1)
-    y_pred_binary_arr = y_pred_arr.argmax(axis=1).reshape(-1, 1)
 
     fig = plt.figure(figsize=(24, 16))
     for class_idx, class_name in class_map.items():
@@ -108,7 +102,7 @@ def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
             ax.set_ylabel('Attention weights only', fontsize=16)
 
     fig.tight_layout(pad=2)
-    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_attentions.png'))
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_attentions.png'), dpi=200)
 
     for class_idx, class_name in class_map.items():
         subject_indices = (y_true_arr == class_idx).flatten()
@@ -134,7 +128,7 @@ def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
     fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_attentions.png'))
     plt.close(fig)
 
-    fig = plt.figure(figsize=(32, 32))
+    fig = plt.figure(figsize=(12 * len(class_map), feature_attention_arr.shape[1]/4))
     for class_idx, class_name in class_map.items():
         subject_indices = (y_true_arr == class_idx).flatten()
 
@@ -155,7 +149,7 @@ def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
         ax.spines['right'].set_visible(False)
         ax.set_ylim([0, len(gene_names_sorted)])
         ax.set_yticks(range(len(gene_names_sorted)))
-        ax.set_yticklabels([item.split('_')[1] for item in gene_names_sorted])
+        ax.set_yticklabels(gene_names_sorted)
         ax.tick_params(axis='x', which='major', labelsize=18)
 
         if class_idx == 0:
@@ -186,17 +180,83 @@ def visualize_test_set_attention(embedding_save_path, gene_list, class_map):
         ax.spines['right'].set_visible(False)
         ax.set_ylim([0, len(gene_names_sorted)])
         ax.set_yticks(range(len(gene_names_sorted)))
-        ax.set_yticklabels([item.split('_')[1] for item in gene_names_sorted])
+        ax.set_yticklabels(gene_names_sorted)
         ax.tick_params(axis='x', which='major', labelsize=18)
 
         if class_idx == 0:
             ax.set_ylabel('Attention weights scaled by MLP weights', fontsize=16)
 
     fig.tight_layout(pad=2)
-    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_importance.png'))
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'feature_importance.png'), dpi=200)
     plt.close(fig)
 
     return
+
+
+def visualize_test_set_niche_attention(embedding_save_path, gene_list, class_map, topk):
+    npzfile = np.load(embedding_save_path, allow_pickle=True)
+    coords_arr = npzfile['coords_arr']
+    niche_attention_arr = npzfile['niche_attention_arr']
+    y_true_arr = npzfile['y_true_arr']
+    y_pred_arr = npzfile['y_pred_arr']
+
+    # Softmax over classes.
+    y_pred_arr = softmax(y_pred_arr)
+    confidence_arr = y_pred_arr.max(axis=1).reshape(-1, 1)
+    y_pred_label_arr = y_pred_arr.argmax(axis=1).reshape(-1, 1)
+
+    fig = plt.figure(figsize=(12 * len(class_map), 8 * topk))
+    for class_idx, class_name in class_map.items():
+        # Correct prediction, confidence, and indices.
+        mask_correct = (y_true_arr == class_idx) & (y_pred_label_arr == class_idx)
+        confidence_correct = confidence_arr[mask_correct]
+        idx_correct = np.flatnonzero(mask_correct)
+
+        # Find topk most confident ones among correct predictions.
+        assert len(confidence_correct) > 0
+        topk_correct = idx_correct[np.argsort(-confidence_correct)[:topk]]
+
+        for subplot_idx, hypergraph_idx in enumerate(topk_correct):
+            ax = fig.add_subplot(len(class_map), topk * 2, class_idx * topk * 2 + subplot_idx + 1)
+            ax.set_title(class_name + f'\nTop{subplot_idx+1} confidence\nCORRECT prediction', fontsize=24)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.tick_params(axis='both', which='major', labelsize=18)
+
+            coords = coords_arr[hypergraph_idx]
+            niche_attention = niche_attention_arr[hypergraph_idx]
+
+            scatter = ax.scatter(coords[:, 0], coords[:, 1], s=500, c=niche_attention, cmap='coolwarm')
+            fig.colorbar(scatter, ax=ax)
+
+        # Correct prediction, confidence, and indices.
+        mask_incorrect = ~mask_correct
+        confidence_incorrect = confidence_arr[mask_incorrect]
+        idx_incorrect = np.flatnonzero(mask_incorrect)
+
+        # Find topk most confident ones among correct predictions.
+        assert len(confidence_incorrect) > 0
+        topk_incorrect = idx_incorrect[np.argsort(-confidence_incorrect)[:topk]]
+
+        for subplot_idx, hypergraph_idx in enumerate(topk_incorrect):
+            ax = fig.add_subplot(len(class_map), topk * 2, class_idx * topk * 2 + topk + subplot_idx + 1)
+            ax.set_title(class_name + f'\nTop{subplot_idx+1} confidence\nINCORRECT prediction', fontsize=24)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.tick_params(axis='both', which='major', labelsize=18)
+
+            coords = coords_arr[hypergraph_idx]
+            niche_attention = niche_attention_arr[hypergraph_idx]
+
+            scatter = ax.scatter(coords[:, 0], coords[:, 1], s=500, c=niche_attention, cmap='coolwarm')
+            fig.colorbar(scatter, ax=ax)
+
+    fig.tight_layout(pad=2)
+    fig.savefig(os.path.join(os.path.dirname(embedding_save_path), 'topK_bottomK_niches.png'), dpi=200)
+    plt.close(fig)
+
+    return
+
 
 def softmax(x):
 # Subtract max for numerical stability
@@ -214,6 +274,7 @@ if __name__ == "__main__":
     args.add_argument('--dataset', default='placenta', type=str)
     args.add_argument('--data-folder', default='$ROOT/data/spatial_placenta_accreta/patchified_selected_genes', type=str)
     args.add_argument('--num-features', default=212, type=int)  # number of genes or features
+    args.add_argument('--topk', default=3, type=int, help='for niche attention visualization')
 
     args = args.parse_known_args()[0]
     args.batch_size = 1
@@ -225,12 +286,12 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the data.
-    train_loader, val_loader, test_loader, dataset = prepare_dataloaders(args)
+    train_loader, val_loader, test_loader, num_classes = prepare_dataloaders(args)
 
     model = HypergraphScatteringNet(
         in_channels=64,
         hidden_channels=16,
-        out_channels=dataset.num_classes,
+        out_channels=num_classes,
         num_features=args.num_features,
         trainable_laziness=False,
         trainable_scales=args.trainable_scales,
@@ -257,4 +318,5 @@ if __name__ == "__main__":
 
     gene_list = test_loader.dataset.dataset.gene_list
     class_map = test_loader.dataset.dataset.class_map
-    visualize_test_set_attention(attention_save_path, gene_list=gene_list, class_map=class_map)
+    visualize_test_set_feature_attention(attention_save_path, gene_list=gene_list, class_map=class_map)
+    visualize_test_set_niche_attention(attention_save_path, gene_list=gene_list, class_map=class_map, topk=args.topk)
